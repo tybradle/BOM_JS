@@ -1,0 +1,813 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+import { 
+  Plus, 
+  Download, 
+  Upload, 
+  FileText, 
+  Database,
+  Settings,
+  Search,
+  Filter,
+  RefreshCw,
+  Import,
+  FileSpreadsheet,
+  ArrowLeft,
+  FolderOpen
+} from 'lucide-react'
+import Link from 'next/link'
+import { useBOMStore } from '@/lib/store'
+import { EditableBOMTable } from '@/components/editable-bom-table'
+import { LocationTabs } from '@/components/LocationTabs'
+
+// Check if we're in Electron
+const isElectron = typeof window !== 'undefined' && window.process && window.process.type
+
+export default function BOMProjectPage() {
+  const params = useParams()
+  const router = useRouter()
+  const projectId = params.projectId as string
+  
+  const {
+    currentProject,
+    bomItems,
+    locations,
+    currentLocationId,
+    loading,
+    error,
+    searchTerm,
+    selectedItems,
+    fetchProject,
+    fetchBOMItems,
+    fetchLocations,
+    addBOMItem,
+    deleteBOMItem,
+    exportBOM,
+    importBOM,
+    setCurrentProject,
+    setCurrentLocation,
+    setSearchTerm,
+    duplicateItems,
+    createLocation,
+    deleteLocation
+  } = useBOMStore()
+
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isDatabaseOpen, setIsDatabaseOpen] = useState(false)
+  const [newItem, setNewItem] = useState({
+    partNumber: '',
+    description: '',
+    quantity: 1,
+    unit: 'PCS',
+    manufacturer: '',
+    supplier: '',
+    category: ''
+  })
+  const [importData, setImportData] = useState('')
+  const [appVersion, setAppVersion] = useState('')
+
+  const { toast } = useToast()
+
+  useEffect(() => {
+    // Get app version if in Electron
+    if (isElectron && window.electronAPI) {
+      window.electronAPI.getVersion().then(setAppVersion)
+      
+      // Set up menu event listeners
+      window.electronAPI.onMenuAction((action: string) => {
+        switch (action) {
+          case 'menu-new-project':
+            router.push('/')
+            break
+          case 'menu-import-csv':
+            if (currentLocationId) {
+              setIsImportOpen(true)
+            }
+            break
+          case 'menu-export-xml':
+            if (currentProject) {
+              handleExport('XML')
+            }
+            break
+          default:
+            break
+        }
+      })
+    }
+  }, [currentProject, currentLocationId, router])
+
+  useEffect(() => {
+    if (projectId) {
+      fetchProject(projectId)
+    }
+  }, [projectId, fetchProject])
+
+  useEffect(() => {
+    if (currentProject && currentProject.id === projectId) {
+      fetchBOMItems(currentProject.id, currentLocationId)
+      fetchLocations(currentProject.id)
+    }
+  }, [currentProject, projectId, currentLocationId, fetchBOMItems, fetchLocations])
+
+  const handleAddItem = async () => {
+    if (!currentProject || !currentLocationId || !newItem.partNumber || !newItem.description) return
+
+    await addBOMItem(currentProject.id, {
+      ...newItem,
+      locationId: currentLocationId
+    })
+
+    setNewItem({
+      partNumber: '',
+      description: '',
+      quantity: 1,
+      unit: 'PCS',
+      manufacturer: '',
+      supplier: '',
+      category: ''
+    })
+    setIsAddItemOpen(false)
+
+    toast({
+      title: "Item added",
+      description: "BOM item has been added successfully."
+    })
+  }
+
+  const handleExport = async (format: 'XML' | 'JSON' | 'CSV') => {
+    if (!currentProject) return
+
+    try {
+      const result = await exportBOM(currentProject.id, format)
+      
+      // Handle file save differently in Electron vs web
+      if (isElectron && window.electronAPI) {
+        const { filePath } = await window.electronAPI.showSaveDialog({
+          defaultPath: result.filename,
+          filters: [
+            { name: format, extensions: [format.toLowerCase()] }
+          ]
+        })
+        
+        if (filePath) {
+          // In a real implementation, you'd save the file here
+          // For now, we'll create a download link
+          const blob = new Blob([result.content], { 
+            type: format === 'XML' ? 'application/xml' : 'text/plain' 
+          })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = result.filename
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        }
+      } else {
+        // Web download
+        const blob = new Blob([result.content], { 
+          type: format === 'XML' ? 'application/xml' : 'text/plain' 
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = result.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+
+      toast({
+        title: "Export successful",
+        description: `BOM exported as ${format} file.`
+      })
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export BOM. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleImport = async () => {
+    if (!currentProject || !importData || !currentLocationId) return
+
+    try {
+      // Parse CSV data (simple implementation)
+      const lines = importData.trim().split('\n')
+      const headers = lines[0].split(',').map(h => h.trim())
+      
+      const items = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+        return {
+          partNumber: values[0] || '',
+          description: values[1] || '',
+          quantity: parseFloat(values[2]) || 1,
+          unit: values[3] || 'PCS',
+          manufacturer: values[4] || '',
+          supplier: values[5] || '',
+          category: values[6] || '',
+          locationId: currentLocationId
+        }
+      }).filter(item => item.partNumber && item.description)
+
+      await importBOM(currentProject.id, items, 'CSV')
+      setImportData('')
+      setIsImportOpen(false)
+
+      toast({
+        title: "Import successful",
+        description: `${items.length} items imported successfully.`
+      })
+    } catch (error) {
+      toast({
+        title: "Import failed",
+        description: "Failed to import data. Please check the format.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleLocationAdd = async (name: string) => {
+    if (!currentProject) return
+    await createLocation(currentProject.id, name)
+  }
+
+  const handleLocationDelete = async (locationId: string) => {
+    await deleteLocation(locationId)
+  }
+
+  const handleRefreshData = async () => {
+    if (!currentProject) return
+    
+    toast({
+      title: "Refreshing data",
+      description: "Updating project data...",
+    })
+    
+    try {
+      await fetchBOMItems(currentProject.id, currentLocationId)
+      await fetchLocations(currentProject.id)
+      
+      toast({
+        title: "Data refreshed",
+        description: "Project data has been updated successfully."
+      })
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: "Failed to refresh data. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleExportAllData = async () => {
+    if (!currentProject) return
+    
+    try {
+      const result = await exportBOM(currentProject.id, 'JSON')
+      
+      const blob = new Blob([result.content], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentProject.projectNumber}_all_data.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast({
+        title: "Export successful",
+        description: "All project data has been exported."
+      })
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
+      ACTIVE: 'default',
+      DRAFT: 'secondary',
+      COMPLETED: 'default',
+      ARCHIVED: 'secondary'
+    }
+    return <Badge variant={variants[status]}>{status}</Badge>
+  }
+
+  const filteredItems = bomItems.filter(item =>
+    item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // If loading, show loading state
+  if (loading && !currentProject) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-md">
+              <CardHeader className="text-center">
+                <CardTitle>Loading Project</CardTitle>
+                <CardDescription>
+                  Please wait while we load your project...
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // If error, show error state
+  if (error && !currentProject) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-md">
+              <CardHeader className="text-center">
+                <CardTitle>Error</CardTitle>
+                <CardDescription>
+                  {error}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Button onClick={() => router.push('/')} variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Projects
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // If no current project after loading, show not found
+  if (!currentProject) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-md">
+              <CardHeader className="text-center">
+                <CardTitle>Project Not Found</CardTitle>
+                <CardDescription>
+                  The project you're looking for doesn't exist or has been deleted.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Button onClick={() => router.push('/')} variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Projects
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Projects
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">BOM Management</h1>
+              <p className="text-muted-foreground">
+                {currentProject.name || `${currentProject.projectNumber} - ${currentProject.packageName}`}
+                {isElectron && appVersion && ` - v${appVersion}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsDatabaseOpen(true)}>
+              <Database className="w-4 h-4 mr-2" />
+              Database
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Project Info */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {currentProject.name || `${currentProject.projectNumber} - ${currentProject.packageName}`}
+                </CardTitle>
+                <CardDescription>
+                  {currentProject.description || `${currentProject.projectNumber} - ${currentProject.packageName}`}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {getStatusBadge(currentProject.status)}
+                <Badge variant="outline">
+                  Version {currentProject.version}
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Main BOM Content */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Bill of Materials</CardTitle>
+                <CardDescription>
+                  Manage parts and components for this project
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={!currentLocationId}>
+                      <Import className="w-4 h-4 mr-2" />
+                      Import
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Import BOM Data</DialogTitle>
+                      <DialogDescription>
+                        Import BOM items from CSV format. Headers: Part Number, Description, Quantity, Unit, Manufacturer, Supplier, Category
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="import-data">CSV Data</Label>
+                        <Textarea
+                          id="import-data"
+                          value={importData}
+                          onChange={(e) => setImportData(e.target.value)}
+                          placeholder="Part Number,Description,Quantity,Unit,Manufacturer,Supplier,Category"
+                          rows={10}
+                        />
+                      </div>
+                      <Button onClick={handleImport} className="w-full" disabled={loading || !importData || !currentLocationId}>
+                        {loading ? 'Importing...' : 'Import Items'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" disabled={!currentLocationId}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Item to {locations.find(l => l.id === currentLocationId)?.name || 'Current Location'}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add BOM Item</DialogTitle>
+                      <DialogDescription>
+                        Add a new item to {locations.find(l => l.id === currentLocationId)?.name || 'the current location'}.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="part-number">Part Number *</Label>
+                          <Input
+                            id="part-number"
+                            value={newItem.partNumber}
+                            onChange={(e) => setNewItem({ ...newItem, partNumber: e.target.value })}
+                            placeholder="e.g., PLC-001"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="quantity">Quantity *</Label>
+                          <Input
+                            id="quantity"
+                            type="number"
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) || 1 })}
+                            placeholder="1"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label htmlFor="description">Description *</Label>
+                          <Input
+                            id="description"
+                            value={newItem.description}
+                            onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                            placeholder="e.g., Programmable Logic Controller"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="unit">Unit</Label>
+                          <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PCS">Pieces</SelectItem>
+                              <SelectItem value="SET">Set</SelectItem>
+                              <SelectItem value="M">Meter</SelectItem>
+                              <SelectItem value="KG">Kilogram</SelectItem>
+                              <SelectItem value="L">Liter</SelectItem>
+                              <SelectItem value="BOX">Box</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="category">Category</Label>
+                          <Input
+                            id="category"
+                            value={newItem.category}
+                            onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                            placeholder="e.g., Control Systems"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="manufacturer">Manufacturer</Label>
+                          <Input
+                            id="manufacturer"
+                            value={newItem.manufacturer}
+                            onChange={(e) => setNewItem({ ...newItem, manufacturer: e.target.value })}
+                            placeholder="e.g., Siemens"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="supplier">Supplier</Label>
+                          <Input
+                            id="supplier"
+                            value={newItem.supplier}
+                            onChange={(e) => setNewItem({ ...newItem, supplier: e.target.value })}
+                            placeholder="e.g., Automation Supply Co."
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-6">
+                        <Button onClick={handleAddItem} className="w-full" disabled={loading || !currentLocationId}>
+                          {loading ? 'Adding...' : 'Add Item'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                {/* Settings Dialog */}
+                <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Settings</DialogTitle>
+                      <DialogDescription>
+                        Configure application settings and preferences.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Dark Mode</h4>
+                            <p className="text-sm text-muted-foreground">Toggle dark mode theme</p>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            Coming Soon
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Auto-save</h4>
+                            <p className="text-sm text-muted-foreground">Automatically save changes</p>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            Coming Soon
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Export Format</h4>
+                            <p className="text-sm text-muted-foreground">Default export format</p>
+                          </div>
+                          <Select defaultValue="XML">
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="XML">XML</SelectItem>
+                              <SelectItem value="JSON">JSON</SelectItem>
+                              <SelectItem value="CSV">CSV</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button onClick={() => setIsSettingsOpen(false)}>
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                {/* Database Dialog */}
+                <Dialog open={isDatabaseOpen} onOpenChange={setIsDatabaseOpen}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Database Management</DialogTitle>
+                      <DialogDescription>
+                        Manage database operations and view statistics.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Projects</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{locations.length > 0 ? 1 : 0}</div>
+                            <p className="text-xs text-muted-foreground">Total projects</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Locations</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{locations.length}</div>
+                            <p className="text-xs text-muted-foreground">Total locations</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">BOM Items</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{bomItems.length}</div>
+                            <p className="text-xs text-muted-foreground">Total items</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Current Location</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-sm font-medium truncate">
+                              {locations.find(l => l.id === currentLocationId)?.name || 'None'}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Active location</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <h4 className="font-medium">Database Operations</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button variant="outline" className="w-full" disabled>
+                            <Download className="w-4 h-4 mr-2" />
+                            Backup Database
+                          </Button>
+                          <Button variant="outline" className="w-full" disabled>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Restore Database
+                          </Button>
+                          <Button variant="outline" className="w-full" onClick={handleRefreshData}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh Data
+                          </Button>
+                          <Button variant="outline" className="w-full" onClick={handleExportAllData}>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Export All Data
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <Button onClick={() => setIsDatabaseOpen(false)}>
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                <Button variant="outline" size="sm" disabled={!currentProject}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Location Tabs */}
+              <LocationTabs
+                locations={locations}
+                selectedLocationId={currentLocationId}
+                onLocationSelect={setCurrentLocation}
+                onLocationAdd={handleLocationAdd}
+                onLocationDelete={handleLocationDelete}
+                loading={loading}
+              />
+
+              {/* Search and Filter */}
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search BOM items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button variant="outline" size="sm">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => fetchBOMItems(currentProject.id, currentLocationId)}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Export Options */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Export as:</span>
+                <Button variant="outline" size="sm" onClick={() => handleExport('XML')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  XML
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExport('CSV')}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExport('JSON')}>
+                  <Download className="w-4 h-4 mr-2" />
+                  JSON
+                </Button>
+              </div>
+
+              {/* BOM Table */}
+              {currentLocationId ? (
+                <EditableBOMTable
+                  items={filteredItems}
+                  selectedItems={selectedItems}
+                  onItemSelect={(itemId) => {
+                    // Handle item selection
+                  }}
+                  onItemDelete={(itemId) => deleteBOMItem(currentProject.id, itemId)}
+                  onItemsDuplicate={(itemIds) => duplicateItems(currentProject.id, itemIds)}
+                  loading={loading}
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Please select a location to view BOM items.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
