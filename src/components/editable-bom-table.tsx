@@ -158,11 +158,12 @@ export function EditableBOMTable({
         )
       }
 
-      if (field === 'quantity') {
+      if (field === 'quantity' || field === 'unitPrice') {
         return (
           <Input
             ref={editInputRef}
             type="number"
+            step={field === 'unitPrice' ? '0.01' : '1'}
             value={editingCell.value}
             onChange={(e) => setEditingCell({ ...editingCell, value: parseFloat(e.target.value) || 0 })}
             onKeyDown={handleKeyDown}
@@ -188,10 +189,21 @@ export function EditableBOMTable({
       return getStatusBadge(value)
     }
 
+    if (field === 'unitPrice' && value) {
+      return (
+        <div
+          className="min-h-[2rem] cursor-pointer hover:bg-muted/50 px-2 py-1 rounded"
+          onClick={() => handleCellEdit(item.id, field, value)}
+        >
+          ${Number(value).toFixed(2)}
+        </div>
+      )
+    }
+
     return (
       <div
         className="min-h-[2rem] cursor-pointer hover:bg-muted/50 px-2 py-1 rounded"
-        onClick={() => handleCellEdit(item.id, field, value)}
+        onClick={() => handleCellEdit(item.id, field as string, value)}
       >
         {value}
       </div>
@@ -267,6 +279,17 @@ export function EditableBOMTable({
                   variant="ghost"
                   size="sm"
                   className="h-auto p-0 font-semibold"
+                  onClick={() => handleSort('secondaryDescription')}
+                >
+                  Description 2
+                  <SortIcon column="secondaryDescription" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-semibold"
                   onClick={() => handleSort('quantity')}
                 >
                   Quantity
@@ -282,6 +305,17 @@ export function EditableBOMTable({
                 >
                   Unit
                   <SortIcon column="unit" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-semibold"
+                  onClick={() => handleSort('unitPrice')}
+                >
+                  Unit Price
+                  <SortIcon column="unitPrice" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -311,11 +345,25 @@ export function EditableBOMTable({
                   variant="ghost"
                   size="sm"
                   className="h-auto p-0 font-semibold"
+                  onClick={() => handleSort('referenceDesignator')}
+                >
+                  Ref Designator
+                  <SortIcon column="referenceDesignator" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-semibold"
                   onClick={() => handleSort('status')}
                 >
                   Status
                   <SortIcon column="status" />
                 </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                Spare
               </TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
@@ -336,10 +384,16 @@ export function EditableBOMTable({
                   {renderEditableCell(item, 'description', item.description)}
                 </TableCell>
                 <TableCell>
+                  {renderEditableCell(item, 'secondaryDescription', item.secondaryDescription || '')}
+                </TableCell>
+                <TableCell>
                   {renderEditableCell(item, 'quantity', item.quantity)}
                 </TableCell>
                 <TableCell>
                   {renderEditableCell(item, 'unit', item.unit)}
+                </TableCell>
+                <TableCell>
+                  {renderEditableCell(item, 'unitPrice', item.unitPrice || '')}
                 </TableCell>
                 <TableCell>
                   {renderEditableCell(item, 'manufacturer', item.manufacturer || '')}
@@ -348,7 +402,16 @@ export function EditableBOMTable({
                   {renderEditableCell(item, 'supplier', item.supplier || '')}
                 </TableCell>
                 <TableCell>
+                  {renderEditableCell(item, 'referenceDesignator', item.referenceDesignator || '')}
+                </TableCell>
+                <TableCell>
                   {renderEditableCell(item, 'status', item.status)}
+                </TableCell>
+                <TableCell className="text-center">
+                  <Checkbox
+                    checked={item.isSpare}
+                    onCheckedChange={(checked) => onItemUpdate(item.id, 'isSpare', checked as boolean)}
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

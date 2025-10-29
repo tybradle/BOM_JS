@@ -51,6 +51,7 @@ model BOMProject {
 model Location {
   id          String   @id @default(cuid())
   name        String
+  exportName  String?  // Optional custom name for KittingLocation in Eplan export
   order       Int      @default(0) // For tab ordering
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -67,19 +68,23 @@ model Location {
 }
 
 model BOMItem {
-  id           String      @id @default(cuid())
-  partNumber   String
-  description  String
-  quantity     Float
-  unit         String
-  manufacturer String?
-  supplier     String?
-  category     String?
-  status       ItemStatus  @default(ACTIVE)
-  metadata     Json?       // Additional item metadata
-  order        Int         @default(0) // For ordering items
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                    String      @id @default(cuid())
+  partNumber            String
+  description           String
+  secondaryDescription  String?     // Maps to P_ARTICLE_DESCR2 in Eplan export
+  quantity              Float
+  unit                  String
+  unitPrice             Float?      // Maps to P_ARTICLE_SALESPRICE_1 in Eplan export
+  manufacturer          String?
+  supplier              String?
+  category              String?
+  referenceDesignator   String?     // Maps to P_ARTICLE_DEVTAG in Eplan export (e.g., EA8841, W[-...])
+  isSpare               Boolean     @default(false) // Maps to P_ARTICLE_SPARE (0=false, 1=true)
+  status                ItemStatus  @default(ACTIVE)
+  metadata              Json?       // Additional item metadata
+  order                 Int         @default(0) // For ordering items
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
   
   // Relations
   projectId    String
@@ -155,6 +160,28 @@ model Category {
   children    Category[] @relation("CategoryHierarchy")
 }
 
+model MasterPart {
+  id                    String   @id @default(cuid())
+  partNumber            String   @unique
+  manufacturer          String
+  description           String
+  secondaryDescription  String?
+  category              String?
+  unitPrice             Float?
+  supplier              String?
+  
+  // Metadata
+  lastUpdated           DateTime @default(now()) @updatedAt
+  source                String   @default("parts.xml")
+  importDate            DateTime @default(now())
+  createdAt             DateTime @default(now())
+  
+  @@index([partNumber])
+  @@index([manufacturer])
+  @@index([description])
+  @@index([category])
+}
+
 // Enums
 enum ProjectStatus {
   DRAFT
@@ -171,7 +198,8 @@ enum ItemStatus {
 }
 
 enum ExportFormat {
-  XML
+  EPLAN      // Eplan XML format (primary PLM export)
+  XML        // Generic XML
   JSON
   CSV
   EXCEL

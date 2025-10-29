@@ -1,22 +1,26 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
-interface BOMItem {
+export interface BOMItem {
   id: string
   partNumber: string
   description: string
+  secondaryDescription?: string // Maps to P_ARTICLE_DESCR2
   quantity: number
   unit: string
+  unitPrice?: number // Maps to P_ARTICLE_SALESPRICE_1
   manufacturer?: string
   supplier?: string
   category?: string
+  referenceDesignator?: string // Maps to P_ARTICLE_DEVTAG
+  isSpare: boolean // Maps to P_ARTICLE_SPARE
   status: 'ACTIVE' | 'OBSOLETE' | 'PENDING' | 'DISCONTINUED'
   order: number
   createdAt: string
   updatedAt: string
 }
 
-interface BOMProject {
+export interface BOMProject {
   id: string
   projectNumber: string
   packageName: string

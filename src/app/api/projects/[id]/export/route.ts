@@ -8,20 +8,18 @@ export async function POST(
   try {
     const { id } = await params
     const body = await request.json()
-    const { format } = body
+    const { format = 'EPLAN' } = body // Default to EPLAN format
 
-    if (!format) {
-      return NextResponse.json(
-        { error: 'Export format is required' },
-        { status: 400 }
-      )
-    }
-
-    // Get project details
+    // Get project details with locations and items
     const project = await db.bOMProject.findUnique({
       where: { id },
       include: {
-        items: {
+        locations: {
+          include: {
+            items: {
+              orderBy: { order: 'asc' }
+            }
+          },
           orderBy: { order: 'asc' }
         }
       }
@@ -37,15 +35,19 @@ export async function POST(
     let content = ''
     let filename = ''
 
-    if (format === 'XML') {
+    if (format === 'EPLAN' || format === 'XML') {
       content = generateEplanXML(project)
-      filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_BOM.xml`
+      // Filename format: {projectNumber}_{locationName}_{version}.xml
+      const primaryLocation = project.locations[0]?.name || 'BOM'
+      filename = `${project.projectNumber}_${primaryLocation.replace(/[^a-zA-Z0-9]/g, '_')}_${project.version}.xml`
     } else if (format === 'JSON') {
       content = JSON.stringify(project, null, 2)
-      filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_BOM.json`
+      filename = `${project.projectNumber}_BOM.json`
     } else if (format === 'CSV') {
-      content = generateCSV(project.items)
-      filename = `${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_BOM.csv`
+      // Flatten all items from all locations
+      const allItems = project.locations.flatMap(loc => loc.items)
+      content = generateCSV(allItems)
+      filename = `${project.projectNumber}_BOM.csv`
     } else {
       return NextResponse.json(
         { error: 'Unsupported export format' },
@@ -57,7 +59,7 @@ export async function POST(
     const exportRecord = await db.bOMExport.create({
       data: {
         filename,
-        format: format.toUpperCase(),
+        format: format.toUpperCase() === 'XML' ? 'EPLAN' : format.toUpperCase(),
         content,
         version: project.version,
         projectId: id
@@ -81,35 +83,59 @@ export async function POST(
 }
 
 function generateEplanXML(project: any): string {
-  const xmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
-<EPLAN xmlns="http://www.eplan.de/EPLAN" version="2.7">
-  <Project>
-    <Properties>
-      <Name>${project.name}</Name>
-      <Description>${project.description || ''}</Description>
-      <Version>${project.version}</Version>
-      <Created>${project.createdAt}</Created>
-      <Modified>${project.updatedAt}</Modified>
-    </Properties>
-    <Parts>`
+  // Eplan XML format based on sample: 14247_Z2_MAIN_1.xml
+  // Project → Package → KittingLocation(s) → Parts
+  
+  const primaryLocation = project.locations[0]?.name || 'MAIN'
+  const projectName = `${project.projectNumber}_${primaryLocation}_${project.version || '1'}`
+  
+  const xmlHeader = `<?xml version="1.0" encoding="utf-8"?>
+<Project Name="${escapeXml(projectName)}">`
 
-  const partsXML = project.items.map((item: any, index: number) => `      <Part id="${index + 1}">
-        <PartNumber>${item.partNumber}</PartNumber>
-        <Description>${item.description}</Description>
-        <Quantity>${item.quantity}</Quantity>
-        <Unit>${item.unit}</Unit>
-        <Manufacturer>${item.manufacturer || ''}</Manufacturer>
-        <Supplier>${item.supplier || ''}</Supplier>
-        <Category>${item.category || ''}</Category>
-        <Status>${item.status}</Status>
-      </Part>`).join('\n')
+  const packageXML = `
+  <Package Name="${escapeXml(project.packageName)}">`
+
+  // Generate KittingLocation elements for each location with items
+  const locationsXML = project.locations
+    .filter((location: any) => location.items && location.items.length > 0)
+    .map((location: any) => {
+      const locationName = location.exportName || location.name
+      const partsXML = location.items.map((item: any) => generatePartXML(item)).join('\n')
+      
+      return `    <KittingLocation Name="${escapeXml(locationName)}">
+${partsXML}
+    </KittingLocation>`
+    }).join('\n')
 
   const xmlFooter = `
-    </Parts>
-  </Project>
-</EPLAN>`
+  </Package>
+</Project>`
 
-  return xmlHeader + partsXML + xmlFooter
+  return xmlHeader + packageXML + '\n' + locationsXML + xmlFooter
+}
+
+function generatePartXML(item: any): string {
+  // Map BOMItem fields to Eplan P_ARTICLE fields
+  return `      <Part>
+        <P_ARTICLE_MANUFACTURER>${escapeXml(item.manufacturer || '')}</P_ARTICLE_MANUFACTURER>
+        <P_ARTICLE_DESCR1>${escapeXml(item.description)}</P_ARTICLE_DESCR1>
+        <P_ARTICLE_DESCR2>${escapeXml(item.secondaryDescription || item.category || '')}</P_ARTICLE_DESCR2>
+        <P_ARTICLE_ORDERNR>${escapeXml(item.partNumber)}</P_ARTICLE_ORDERNR>
+        <P_ARTICLE_DEVTAG>${escapeXml(item.referenceDesignator || '')}</P_ARTICLE_DEVTAG>
+        <P_ARTICLE_QUANTITY_IN_PROJECT_UNIT>${item.quantity}</P_ARTICLE_QUANTITY_IN_PROJECT_UNIT>
+        <P_ARTICLE_SALESPRICE_1>${item.unitPrice !== null && item.unitPrice !== undefined ? item.unitPrice : ''}</P_ARTICLE_SALESPRICE_1>
+        <P_ARTICLE_SPARE>${item.isSpare ? '1' : '0'}</P_ARTICLE_SPARE>
+      </Part>`
+}
+
+function escapeXml(str: string): string {
+  if (typeof str !== 'string') return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
 }
 
 function generateCSV(items: any[]): string {
