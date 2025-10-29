@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Pencil } from 'lucide-react'
 
 interface Location {
   id: string
   name: string
+  exportName?: string | null
   order: number
   itemCount?: number
 }
@@ -21,6 +22,7 @@ interface LocationTabsProps {
   onLocationSelect: (locationId: string) => void
   onLocationAdd: (name: string) => Promise<void>
   onLocationDelete: (locationId: string) => Promise<void>
+  onLocationUpdate: (locationId: string, name: string, exportName?: string | null) => Promise<void>
   loading?: boolean
 }
 
@@ -30,10 +32,15 @@ export function LocationTabs({
   onLocationSelect,
   onLocationAdd,
   onLocationDelete,
+  onLocationUpdate,
   loading = false
 }: LocationTabsProps) {
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false)
+  const [isEditLocationOpen, setIsEditLocationOpen] = useState(false)
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [newLocationName, setNewLocationName] = useState('')
+  const [editLocationName, setEditLocationName] = useState('')
+  const [editLocationExportName, setEditLocationExportName] = useState('')
   const { toast } = useToast()
 
   const handleAddLocation = async () => {
@@ -51,6 +58,41 @@ export function LocationTabs({
     } catch (error) {
       toast({
         title: "Failed to add location",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleEditLocation = (location: Location) => {
+    setEditingLocation(location)
+    setEditLocationName(location.name)
+    setEditLocationExportName(location.exportName || '')
+    setIsEditLocationOpen(true)
+  }
+
+  const handleUpdateLocation = async () => {
+    if (!editingLocation || !editLocationName.trim()) return
+
+    try {
+      await onLocationUpdate(
+        editingLocation.id,
+        editLocationName.trim(),
+        editLocationExportName.trim() || null
+      )
+      
+      setIsEditLocationOpen(false)
+      setEditingLocation(null)
+      setEditLocationName('')
+      setEditLocationExportName('')
+      
+      toast({
+        title: "Location updated",
+        description: `Location has been updated successfully.`
+      })
+    } catch (error) {
+      toast({
+        title: "Failed to update location",
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive"
       })
@@ -113,19 +155,35 @@ export function LocationTabs({
                         ({location.itemCount})
                       </span>
                     )}
+                    {location.exportName && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400" title={`Export name: ${location.exportName}`}>
+                        [{location.exportName}]
+                      </span>
+                    )}
                   </div>
                 </button>
                 
-                {/* Delete button - only show on hover and if more than 1 location */}
-                {sortedLocations.length > 1 && (
+                {/* Edit and Delete buttons - only show on hover */}
+                <div className="absolute right-1 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
                   <button
-                    onClick={() => handleDeleteLocation(location.id, location.name)}
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => handleEditLocation(location)}
+                    className="p-0.5 rounded hover:bg-primary hover:text-primary-foreground"
                     disabled={loading}
+                    title="Edit location"
                   >
-                    <X className="h-3 w-3" />
+                    <Pencil className="h-3 w-3" />
                   </button>
-                )}
+                  {sortedLocations.length > 1 && (
+                    <button
+                      onClick={() => handleDeleteLocation(location.id, location.name)}
+                      className="p-0.5 rounded hover:bg-destructive hover:text-destructive-foreground"
+                      disabled={loading}
+                      title="Delete location"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
@@ -179,6 +237,48 @@ export function LocationTabs({
           </Dialog>
         </div>
       </div>
+
+      {/* Edit Location Dialog */}
+      <Dialog open={isEditLocationOpen} onOpenChange={setIsEditLocationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+            <DialogDescription>
+              Update the location name and export name. The export name is used in the Eplan XML export.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-location-name">Location Name</Label>
+              <Input
+                id="edit-location-name"
+                value={editLocationName}
+                onChange={(e) => setEditLocationName(e.target.value)}
+                placeholder="e.g., EC1, MA, LCP"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-location-export-name">Export Name (Optional)</Label>
+              <Input
+                id="edit-location-export-name"
+                value={editLocationExportName}
+                onChange={(e) => setEditLocationExportName(e.target.value)}
+                placeholder="Custom name for XML export (defaults to location name)"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If set, this name will be used in the KittingLocation element in Eplan exports
+              </p>
+            </div>
+            <Button 
+              onClick={handleUpdateLocation} 
+              className="w-full" 
+              disabled={loading || !editLocationName.trim()}
+            >
+              {loading ? 'Updating...' : 'Update Location'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

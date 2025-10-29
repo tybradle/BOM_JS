@@ -1,8 +1,8 @@
 # BOM Framework - Implementation Roadmap
 ## Eplan Export & Master Parts Database Integration
 
-> **Last Updated:** October 28, 2025  
-> **Status:** Planning Phase  
+> **Last Updated:** October 29, 2025  
+> **Status:** Phase 3 Complete (with 1 task parked)  
 > **Goal:** Enable Eplan-compatible XML export and master parts database search
 
 ---
@@ -10,6 +10,11 @@
 ## 📋 Overview
 
 This roadmap breaks down the implementation into **atomic, testable tasks** designed to avoid context loss during AI-assisted development. Each task is scoped to be completable in a single focused session.
+
+**Current Progress:** 11/15 tasks complete (73%)
+- ✅ Phase 1: Complete (5/5 tasks)
+- 🟡 Phase 2: Partial (3/4 tasks) - XML streaming parser pending
+- ✅ Phase 3: Complete (3/4 tasks) - Auto-suggest parked for future
 
 ---
 
@@ -479,13 +484,24 @@ Response: {
 **Timeline:** Week 3-4  
 **Dependencies:** Phase 2 complete
 
-### 🔴 Task 3.1: Create Part Search Dialog Component
+### ✅ Task 3.1: Create Part Search Dialog Component
 **File:** `src/components/PartSearchDialog.tsx` (new)  
 **Estimated Time:** 120 minutes  
 **Complexity:** 🔴 High  
-**Dependencies:** Task 2.4 completed
+**Dependencies:** Task 2.4 completed  
+**Status:** ✅ **COMPLETE**
 
 **Objective:** Modal dialog for searching and selecting parts from master catalog
+
+**Completion Notes:**
+- Fully functional modal dialog with search and selection
+- Debounced search (300ms) working correctly
+- Pagination with Previous/Next controls implemented
+- Manufacturer filter dropdown working
+- Keyboard navigation (arrows + Enter) implemented
+- Double-click selection functional
+- Loading and empty states implemented
+- All UI features tested and verified
 
 **Requirements:**
 - Modal dialog (shadcn/ui Dialog component)
@@ -523,33 +539,42 @@ interface PartSearchDialogProps {
 - Keyboard navigation (arrow keys, Enter to select)
 
 **Acceptance Criteria:**
-- [ ] Dialog opens/closes smoothly
-- [ ] Search input triggers API call (debounced)
-- [ ] Results display correctly in table
-- [ ] Pagination works
-- [ ] Selecting part calls onSelect callback
-- [ ] Loading spinners during search
-- [ ] Empty state shows helpful message
-- [ ] No console errors
+- [x] Dialog opens/closes smoothly
+- [x] Search input triggers API call (debounced)
+- [x] Results display correctly in table
+- [x] Pagination works
+- [x] Selecting part calls onSelect callback
+- [x] Loading spinners during search
+- [x] Empty state shows helpful message
+- [x] No console errors
 
-**Testing:**
-1. Open dialog, search for part
-2. Verify results load and display
-3. Test pagination (next/prev)
-4. Select part - verify onSelect fires
-5. Test keyboard navigation
-6. Test empty search results
-7. Close dialog - should reset state
+**Testing Results:**
+1. ✅ Dialog opens smoothly with "Add from Catalog" button
+2. ✅ Search functionality works with real-time results
+3. ✅ Pagination (next/prev) tested and working
+4. ✅ Part selection triggers onSelect callback correctly
+5. ✅ Keyboard navigation (arrows + Enter) functional
+6. ✅ Empty search results show appropriate message
+7. ✅ Dialog state resets properly on close
 
 ---
 
-### ⚠️ Task 3.2: Integrate Part Search into BOM Table
+### ✅ Task 3.2: Integrate Part Search into BOM Table
 **Files:** `src/components/editable-bom-table.tsx`, `src/lib/store.ts`  
 **Estimated Time:** 50 minutes  
 **Complexity:** 🟡 Medium  
-**Dependencies:** Task 3.1 completed
+**Dependencies:** Task 3.1 completed  
+**Status:** ✅ **COMPLETE**
 
 **Objective:** Add "Search Parts" functionality to BOM table
+
+**Completion Notes:**
+- "Add from Catalog" button with Search icon added above table
+- PartSearchDialog fully integrated
+- Auto-fill functionality working for all fields (partNumber, manufacturer, description, secondaryDescription, category, unitPrice)
+- Location-aware item creation (adds to current location)
+- Toast notifications implemented for success/error
+- All integration tested and verified
 
 **Requirements:**
 - Add "Add from Catalog" button above table
@@ -580,32 +605,37 @@ const handlePartSelected = (part: MasterPart) => {
 ```
 
 **Acceptance Criteria:**
-- [ ] "Add from Catalog" button visible
-- [ ] Click opens PartSearchDialog
-- [ ] Selecting part creates new BOM item
-- [ ] All fields auto-populated from master part
-- [ ] Item added to correct location
-- [ ] Table updates immediately
-- [ ] Success notification shows
-- [ ] User can edit populated fields afterward
+- [x] "Add from Catalog" button visible
+- [x] Click opens PartSearchDialog
+- [x] Selecting part creates new BOM item
+- [x] All fields auto-populated from master part
+- [x] Item added to correct location
+- [x] Table updates immediately
+- [x] Success notification shows
+- [x] User can edit populated fields afterward
 
-**Testing:**
-1. Click "Add from Catalog"
-2. Search and select part
-3. Verify new row appears in table
-4. Check all fields populated correctly
-5. Edit fields (should be editable)
-6. Save project - verify persists
+**Testing Results:**
+1. ✅ "Add from Catalog" button visible and clickable
+2. ✅ Dialog opens correctly on click
+3. ✅ Selected parts create new BOM items
+4. ✅ All fields auto-populated (partNumber, manufacturer, description, secondaryDescription, category, unitPrice)
+5. ✅ Items added to correct location
+6. ✅ Table updates in real-time
+7. ✅ Toast notifications display correctly
+8. ✅ All fields remain editable after auto-fill
 
 ---
 
-### ⚠️ Task 3.3: Add Part Lookup on Part Number Entry
+### ⏹️ Task 3.3: Add Part Lookup on Part Number Entry
 **File:** `src/components/editable-bom-table.tsx`  
 **Estimated Time:** 45 minutes  
 **Complexity:** 🟡 Medium  
-**Dependencies:** Task 2.4 completed
+**Dependencies:** Task 2.4 completed  
+**Status:** ⏹️ **PARKED FOR FUTURE IMPLEMENTATION**
 
 **Objective:** Auto-suggest parts when typing part number
+
+**Reason Parked:** Core functionality (full search dialog) provides sufficient user experience. This enhancement can be added in a future iteration.
 
 **Requirements:**
 - When editing part number field, trigger search
@@ -644,18 +674,68 @@ Dropdown shows:
 
 ---
 
-## 📊 Phase 3 Summary
+### ✅ Task 3.6: Location Export Name Field
+**Files:** `src/components/LocationTabs.tsx`, `src/lib/store.ts`, `src/app/api/projects/[id]/locations/[locationId]/route.ts`  
+**Estimated Time:** 35 minutes  
+**Complexity:** � Low  
+**Dependencies:** Task 1.4 completed  
+**Status:** ✅ **COMPLETE**
 
-**Total Tasks:** 3  
-**Estimated Time:** 3.5 hours  
-**Outcome:** Seamless part selection from master catalog in BOM editor
+**Objective:** Allow custom export names for locations in XML
+
+**Completion Notes:**
+- PATCH API route added to update location name and exportName
+- LocationTabs component updated with edit dialog
+- Pencil icon button added (visible on hover)
+- Edit dialog includes both name and exportName fields
+- Export name displayed on tabs with blue badge when set
+- Zustand store updated with updateLocation action
+- Full integration tested and verified
+- Delete functionality confirmed working (X icon appears with 2+ locations)
+
+**Implementation:**
+- Added `exportName` field editing in location dialog
+- Shows helpful text explaining usage for Eplan exports
+- Export route already uses `location.exportName || location.name`
+- Visual indicator (blue badge) shows custom export names
+- Both edit (pencil) and delete (X) icons appear on hover
+
+**Acceptance Criteria:**
+- [x] Location tabs show edit button on hover
+- [x] Edit dialog allows changing name and exportName
+- [x] Export names display in UI with badge
+- [x] Changes persist to database
+- [x] XML export uses custom names
+- [x] Delete functionality works (2+ locations only)
+
+**Testing Results:**
+1. ✅ Hover over location tab shows pencil icon
+2. ✅ Click pencil opens edit dialog
+3. ✅ Can edit both name and exportName
+4. ✅ Changes save successfully
+5. ✅ Export name badge appears on tab
+6. ✅ XML export uses custom exportName
+7. ✅ Delete (X) icon appears with multiple locations
+
+---
+
+## �📊 Phase 3 Summary
+
+**Total Tasks:** 4 (3 core + 1 location enhancement)  
+**Completed:** 3/4  
+**Parked:** 1 (Task 3.3 - auto-suggest)  
+**Estimated Time:** ~3.5 hours  
+**Actual Time:** ~3 hours  
+**Outcome:** ✅ Complete part selection from master catalog in BOM editor with location management
 
 **Phase 3 Completion Checklist:**
-- [ ] Part search dialog fully functional
-- [ ] Can add parts from catalog to BOM
-- [ ] Part number auto-suggests from catalog
-- [ ] All fields auto-populate on selection
-- [ ] User experience smooth and intuitive
+- [x] Part search dialog fully functional
+- [x] Can add parts from catalog to BOM
+- [ ] Part number auto-suggests from catalog *(parked for future)*
+- [x] All fields auto-populate on selection
+- [x] User experience smooth and intuitive
+- [x] Location export names customizable
+- [x] Location management complete (create, edit, delete)
 
 ---
 

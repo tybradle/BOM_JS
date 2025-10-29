@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
-const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3002;
 const hostname = '127.0.0.1';
 
 // Custom server with Socket.IO integration

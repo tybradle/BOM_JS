@@ -53,6 +53,7 @@ export default function BOMProjectPage() {
     fetchBOMItems,
     fetchLocations,
     addBOMItem,
+    updateBOMItem,
     deleteBOMItem,
     exportBOM,
     importBOM,
@@ -497,12 +498,6 @@ export default function BOMProjectPage() {
                 </Dialog>
                 
                 <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" disabled={!currentLocationId}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Item to {locations.find(l => l.id === currentLocationId)?.name || 'Current Location'}
-                    </Button>
-                  </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Add BOM Item</DialogTitle>
@@ -791,13 +786,17 @@ export default function BOMProjectPage() {
               {currentLocationId ? (
                 <EditableBOMTable
                   items={filteredItems}
-                  selectedItems={selectedItems}
-                  onItemSelect={(itemId) => {
-                    // Handle item selection
+                  onItemUpdate={(itemId, field, value) => {
+                    updateBOMItem(itemId, { [field]: value })
                   }}
-                  onItemDelete={(itemId) => deleteBOMItem(currentProject.id, itemId)}
-                  onItemsDuplicate={(itemIds) => duplicateItems(currentProject.id, itemIds)}
-                  loading={loading}
+                  onItemsDelete={(itemIds) => {
+                    itemIds.forEach(id => deleteBOMItem(id))
+                  }}
+                  onItemsDuplicate={(itemIds) => {
+                    duplicateItems(itemIds)
+                  }}
+                  onAddItemClick={() => setIsAddItemOpen(true)}
+                  currentLocationName={locations.find(l => l.id === currentLocationId)?.name}
                 />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">

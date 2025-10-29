@@ -111,16 +111,6 @@ export default function LandingPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      ACTIVE: 'default',
-      DRAFT: 'secondary',
-      COMPLETED: 'default',
-      ARCHIVED: 'secondary'
-    }
-    return <Badge variant={variants[status]}>{status}</Badge>
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
@@ -172,7 +162,7 @@ export default function LandingPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh]">
+                <DialogContent className="max-w-6xl max-h-[85vh]">
                   <DialogHeader>
                     <DialogTitle>Project Manager</DialogTitle>
                     <DialogDescription>
@@ -266,7 +256,6 @@ export default function LandingPage() {
                                     <h4 className="font-medium">
                                       {project.name || `${project.projectNumber} - ${project.packageName}`}
                                     </h4>
-                                    {getStatusBadge(project.status)}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
                                     {project.projectNumber}

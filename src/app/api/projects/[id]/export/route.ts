@@ -37,9 +37,8 @@ export async function POST(
 
     if (format === 'EPLAN' || format === 'XML') {
       content = generateEplanXML(project)
-      // Filename format: {projectNumber}_{locationName}_{version}.xml
-      const primaryLocation = project.locations[0]?.name || 'BOM'
-      filename = `${project.projectNumber}_${primaryLocation.replace(/[^a-zA-Z0-9]/g, '_')}_${project.version}.xml`
+      // Filename format: {projectNumber}_{packageName}.xml (no version)
+      filename = `${project.projectNumber}_${project.packageName.replace(/[^a-zA-Z0-9]/g, '_')}.xml`
     } else if (format === 'JSON') {
       content = JSON.stringify(project, null, 2)
       filename = `${project.projectNumber}_BOM.json`
@@ -86,8 +85,8 @@ function generateEplanXML(project: any): string {
   // Eplan XML format based on sample: 14247_Z2_MAIN_1.xml
   // Project → Package → KittingLocation(s) → Parts
   
-  const primaryLocation = project.locations[0]?.name || 'MAIN'
-  const projectName = `${project.projectNumber}_${primaryLocation}_${project.version || '1'}`
+  // Project name format: {projectNumber}_{packageName} (NO version)
+  const projectName = `${project.projectNumber}_${project.packageName}`
   
   const xmlHeader = `<?xml version="1.0" encoding="utf-8"?>
 <Project Name="${escapeXml(projectName)}">`

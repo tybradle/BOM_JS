@@ -1,179 +1,121 @@
 # Next Session Quick Start Guide
 
 ## 🎯 Session Goals
-Complete Phase 2 (Master Parts Database) and begin Phase 3 (UI Integration)
+**System Status:** Production-ready for core BOM management workflow  
+**Next Focus:** Complete Phase 2 (XML streaming parser) OR begin Phase 4 (enhancements)
 
 ---
 
 ## 🚦 Start Here
 
-### 1. First: Verify Dev Server Starts on Port 3001
+### 1. Verify Dev Server Starts on Port 3002
 ```bash
-# Server is already configured to use port 3001 (not 3000)
-# Check if server starts successfully
+# Server is configured to use port 3002
+# Start dev server
 npm run dev
 
-# If you encounter port conflicts, verify what's using ports:
-netstat -ano | findstr :3001
-
-# Start dev server (should run on http://localhost:3001)
-npm run dev
+# Should run on http://localhost:3002
+# Confirm in browser: http://127.0.0.1:3002
 ```
 
-**Note:** The server is already configured to use port 3001 in `server.ts`, so the port 3000 issue may already be resolved.
+**Current Status:** ✅ Server working on port 3002, all features tested and functional
 
 ---
 
-### 2. Test Completed Work
+### 2. Verify Completed Features
 
-#### Test Export (Phase 1)
-```bash
-# Assuming dev server running on http://localhost:3001
+#### ✅ Phase 1: Core Export (All Complete)
+- Export generates valid Eplan XML with all 8 fields
+- Location grouping via KittingLocation elements
+- Spare parts checkbox functional
+- Secondary description editable
+- Unit price field working
 
-# Create a test project with items
-# Then export it
-curl http://localhost:3001/api/projects/[id]/export > test-export.xml
+#### ✅ Phase 2: Master Parts Database (3/4 Complete)
+- Database model created and migrated
+- Search API functional with pagination and filters
+- 21 sample parts seeded (Allen-Bradley, SIEMENS)
+- Import API working (JSON format)
+- **Pending:** XML streaming parser (Task 2.2) - for full 362MB import
 
-# Compare to sample
-# Expected: Matches structure of Samples/Export Sample/14247_Z2_MAIN_1.xml
-```
-
-#### Test Search API (Phase 2, Task 2.4)
-```bash
-# Search for parts (will be empty until data imported)
-curl "http://localhost:3001/api/parts/search?q=test&page=1&limit=20"
-
-# Expected response:
-# { "results": [], "total": 0, "page": 1, "limit": 20, "hasMore": false }
-```
-
----
-
-### 3. Load Sample Parts Data
-
-Since we don't have the streaming parser yet, create a small test dataset:
-
-```typescript
-// Create file: scripts/seed-parts.ts
-
-import { db } from '../src/lib/db'
-
-const sampleParts = [
-  {
-    partNumber: "1756-L85E",
-    manufacturer: "Allen-Bradley",
-    description: "ControlLogix Controller",
-    secondaryDescription: "Logix 5580, 20MB memory",
-    category: "Controllers",
-    unitPrice: 4250.00,
-    supplier: "Rockwell Automation"
-  },
-  {
-    partNumber: "1756-EN2T",
-    manufacturer: "Allen-Bradley", 
-    description: "EtherNet/IP Communication Module",
-    secondaryDescription: "Dual port, 10/100 Mbps",
-    category: "Communication",
-    unitPrice: 850.00,
-    supplier: "Rockwell Automation"
-  },
-  // Add 10-20 more parts...
-]
-
-async function seedParts() {
-  console.log('Seeding parts...')
-  
-  for (const part of sampleParts) {
-    await db.masterPart.create({ data: part })
-  }
-  
-  console.log(`Seeded ${sampleParts.length} parts`)
-}
-
-seedParts().catch(console.error).finally(() => process.exit())
-```
-
-```bash
-# Run seed script
-npx tsx scripts/seed-parts.ts
-
-# Verify in Prisma Studio
-npx prisma studio
-# Navigate to MasterPart table
-```
+#### ✅ Phase 3: UI Integration (3/4 Complete)
+- Part Search Dialog fully functional
+- "Add from Catalog" integration working
+- Auto-fill all fields from master parts
+- Location management (create, edit, delete)
+- Export name customization working
+- **Parked:** Auto-suggest (Task 3.3) - future enhancement
 
 ---
 
-## 🔧 Known Issues to Address
+## 🔧 System Status
 
-### Issue 1: Port Verification
-**Symptom:** `npm run dev` fails with port-related errors
+### ✅ Working Features
+- Complete BOM management (create, edit, delete items)
+- Location-based organization with tabs
+- Location editing (name + export name)
+- Master parts catalog search (21 seeded parts)
+- "Add from Catalog" auto-fill functionality
+- Eplan XML export with all required fields
+- Location grouping in exports
+- Spare parts marking
+- Secondary descriptions
+- Unit pricing
 
-**Current Status:** Server is already configured to use port 3001 in `server.ts`:
-```typescript
-const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3001;
-```
+### ⚠️ Known Limitations
+- **XML Import:** Limited to JSON format for now (Task 2.2 pending)
+  - Full 362MB parts.xml import requires streaming parser
+  - Current workaround: Use seed script for test data
+- **Auto-Suggest:** Parked for future (full search dialog works well)
 
-**Solutions if needed:**
-1. Verify port 3001 is available: `netstat -ano | findstr :3001`
-2. If port 3001 is blocked, kill the process or change to another port
-3. Run VS Code as administrator (Windows) if permission issues persist
-
----
-
-### Issue 2: Prisma Client Out of Date
-**Symptom:** TypeScript errors like "Property 'masterPart' does not exist"
-
-**Solution:**
-```bash
-# After any schema changes
-npm run db:push      # Apply schema
-npm run db:generate  # Regenerate client
-```
+### 🗄️ Sample Data
+- **Projects:** Create via UI at http://127.0.0.1:3002
+- **Master Parts:** 21 parts seeded (controllers, I/O, communication, etc.)
+  - Allen-Bradley: 11 parts
+  - SIEMENS: 10 parts
+  - Categories: Controllers, Digital I/O, Communication, Circuit Protection, HMI, Power Supplies, Safety, Sensors, Drives
 
 ---
 
 ## 📋 Task Priority Queue
 
-### High Priority (Do First)
-1. **Verify dev server** - Confirm port 3001 works
-2. **Create seed script** - Load test parts data
-3. **Test export functionality** - Validate XML output with sample data
-4. **Test search API** - Verify fuzzy search works with seeded data
+### ✅ Completed This Session
+1. ✅ Dev server verified on port 3002
+2. ✅ Created seed script with 21 parts
+3. ✅ Tested export functionality
+4. ✅ Tested search API with seeded data
+5. ✅ Task 3.1: Part Search Dialog (120 min)
+6. ✅ Task 3.2: BOM Table Integration (50 min)
+7. ✅ Task 3.6: Location Export Names (35 min)
 
-### Next Priority (After Testing)
-5. **Task 2.2: XML Streaming Parser** (90-120 min, HIGH complexity) - Detailed Implementation
-   - Install `sax` package: `npm install sax @types/sax`
-   - Create `src/lib/xml-streaming-parser.ts` with async generator function
-   - Implement SAX parser event handlers for `<Part>` elements
-   - Add batch processing with configurable batch size (default 1000)
-   - Implement progress tracking callback support
-   - Add error handling for malformed XML
-   - Create unit tests with sample XML data
-   - Test memory efficiency with large files
+### High Priority (Next Session - Choose One Path)
 
-6. **Task 2.3: Complete Import API** (60-90 min, depends on 2.2)
-   - Add multipart/form-data file upload to import route
-   - Integrate streaming parser with file upload
-   - Implement progress tracking for large imports
-   - Test with full parts.xml (362MB)
+**Path A: Complete Phase 2 (Import Capability)**
+- **Task 2.2: XML Streaming Parser** (90-120 min, HIGH complexity)
+  - Install `sax` package: `npm install sax @types/sax`
+  - Create `src/lib/xml-streaming-parser.ts` with async generator
+  - Implement SAX parser for `<Part>` elements
+  - Add batch processing (1000 parts at a time)
+  - Progress tracking callback support
+  - Test with sample XML, then full 362MB file
 
-### Following (After Import Works)
-7. **Task 3.1: Part Search Dialog** (120 min, HIGH complexity)
-   - Create `src/components/PartSearchDialog.tsx`
-   - Use shadcn/ui Dialog component
-   - Connect to search API with debounced search
-   - Add pagination and filtering
+- **Task 2.3: Complete Import API** (60-90 min, depends on 2.2)
+  - Add multipart/form-data file upload
+  - Integrate streaming parser
+  - Progress tracking UI
+  - Test with full parts.xml
 
-8. **Task 3.2: Integrate Part Search into BOM Table**
-   - Add "Add from Catalog" button
-   - Connect PartSearchDialog to BOM table
-   - Auto-populate BOM items from selected parts
+**Path B: Production Hardening (Optional)**
+- End-to-end workflow testing
+- Performance optimization
+- Error handling improvements
+- User documentation
 
-9. **Task 3.3: Add Part Lookup on Part Number Entry**
-   - Implement auto-suggest when typing part numbers
-   - Add dropdown with matching parts
-   - Include "Search all..." option
+### Future Enhancements (Low Priority)
+- Task 3.3: Part Number Auto-Suggest (parked)
+- Part Catalog Management Page
+- Import Progress UI
+- Bulk operations (import/export multiple projects)
 
 ---
 
@@ -187,37 +129,44 @@ npm run db:generate  # Regenerate client
 ### API Routes (Completed)
 - **Export:** `src/app/api/projects/[id]/export/route.ts` ✅
 - **Search:** `src/app/api/parts/search/route.ts` ✅
-- **Import:** `src/app/api/parts/import/route.ts` 🟡 (simplified)
+- **Import:** `src/app/api/parts/import/route.ts` 🟡 (JSON only)
+- **Location Update:** `src/app/api/projects/[id]/locations/[locationId]/route.ts` ✅
 
 ### Components (Completed)
-- **BOM Table:** `src/components/editable-bom-table.tsx` ✅ (5 new columns)
+- **BOM Table:** `src/components/editable-bom-table.tsx` ✅
+- **Part Search Dialog:** `src/components/PartSearchDialog.tsx` ✅
+- **Location Tabs:** `src/components/LocationTabs.tsx` ✅
 
-### To Create Next
-- **Seed Script:** `scripts/seed-parts.ts` ⏹️
+### Scripts (Completed)
+- **Seed Parts:** `scripts/seed-parts.ts` ✅ (21 industrial parts)
+- **Test Search:** `scripts/test-search-api.ts` ✅
+
+### To Create Next (If pursuing Path A)
 - **Streaming Parser:** `src/lib/xml-streaming-parser.ts` ⏹️
-- **Part Search Dialog:** `src/components/PartSearchDialog.tsx` ⏹️
+- **Import UI:** Enhancement to existing import route ⏹️
 
 ---
 
 ## 🧪 Testing Checklist
 
-### Before Starting New Work
-- [ ] Dev server starts successfully
-- [ ] No compilation errors
-- [ ] Database schema in sync (`npx prisma db push`)
-- [ ] Prisma client generated (`npx prisma generate`)
+### ✅ Completed Testing
+- [x] Dev server starts successfully (port 3002)
+- [x] No compilation errors
+- [x] Database schema in sync
+- [x] Prisma client generated
+- [x] Can create BOM items with new fields
+- [x] Export generates valid XML
+- [x] Search returns expected results
+- [x] Part search dialog functional
+- [x] Auto-fill from catalog working
+- [x] Location editing functional
+- [x] Location delete functional (2+ locations)
 
-### After Each Task
-- [ ] No TypeScript errors
-- [ ] API endpoint responds correctly
-- [ ] Database changes persist
-- [ ] UI updates render correctly
-
-### Integration Testing
-- [ ] Can create BOM items with new fields
-- [ ] Export generates valid XML
-- [ ] Search returns expected results
-- [ ] Import processes data correctly
+### Pending Testing (Optional)
+- [ ] Large dataset performance (100+ parts)
+- [ ] Multiple projects workflow
+- [ ] Export with complex location structures
+- [ ] Edge cases (empty locations, null values)
 
 ---
 
@@ -258,57 +207,69 @@ Example commit messages:
 
 ---
 
-## 🎓 Context from Previous Session
+## 🎓 Context from This Session
 
-### What Works
-- ✅ Phase 1 completely implemented
-- ✅ Export generates Eplan XML with all 8 fields
-- ✅ BOM table has all new columns (spare, secondaryDescription, unitPrice, etc.)
-- ✅ MasterPart database model created
-- ✅ Search API functional (just needs data)
+### What Works Now
+- ✅ Complete Phase 1 (all 5 tasks)
+- ✅ Phase 2: 3/4 tasks (database, search API, simplified import)
+- ✅ Phase 3: 3/4 tasks (search dialog, integration, location management)
+- ✅ Full BOM workflow: create project → add locations → search parts → add items → export XML
+- ✅ 21 sample parts in database for testing
 
 ### What's Pending
-- ⏹️ XML streaming parser (Task 2.2) - flagged for dedicated session
-- 🟡 Import API needs XML upload capability
-- ⏹️ All UI integration tasks (Phase 3)
+- ⏹️ XML streaming parser (Task 2.2) - for full 362MB import
+- ⏹️ Auto-suggest feature (Task 3.3) - parked for future
 
-### Recent Changes
-- Added 5 fields to BOMItem model
-- Created MasterPart model with search indexes
-- Rewrote export generator for Eplan format
-- Updated BOM table component with new columns
-- Created search and simplified import APIs
+### Session Achievements
+- Created PartSearchDialog component (320 lines)
+- Integrated "Add from Catalog" with auto-fill
+- Added location edit/delete functionality
+- Added export name customization for locations
+- Tested all features end-to-end
+- Server configured on port 3002 (stable)
+- 21 parts seeded successfully
 
 ---
 
 ## 🚀 Recommended Session Flow
 
-### Session Start (30-45 min)
-1. Verify dev server starts on port 3001
-2. Create seed script and load test parts data
-3. Test export functionality with sample data
-4. Test search API with seeded data
+### If Pursuing Path A (Import Completion)
 
-### Main Work (3-4 hours)
-5. **Focus: Task 2.2** - XML streaming parser (Detailed Implementation)
-   - Install sax package and create parser module
-   - Implement core parsing logic with SAX events
-   - Add batch processing and progress tracking
-   - Implement robust error handling
-   - Create and run unit tests
-   - Test memory efficiency with sample files
+#### Session Start (30-45 min)
+1. Verify dev server on port 3002
+2. Review XML structure in `Samples/Export Sample/14247_Z2_MAIN_1.xml`
+3. Research SAX parser options (`sax` vs `xml-stream`)
+4. Install chosen parser library
 
-6. **Complete Task 2.3** - Full import API with file upload
-   - Add multipart/form-data support
-   - Integrate streaming parser with import route
-   - Implement progress tracking for large imports
-   - Test with full 362MB parts.xml file
+#### Main Work (3-4 hours)
+5. **Task 2.2: XML Streaming Parser**
+   - Create parser module with async generator
+   - Implement SAX event handlers
+   - Add batch processing (1000 parts)
+   - Progress tracking callbacks
+   - Error handling for malformed XML
+   - Unit tests with sample data
 
-### Session End (30-45 min)
-7. Document progress in implementation-roadmap.md
-8. Test full import workflow end-to-end
-9. Plan next session (Phase 3 UI integration tasks)
-10. Commit changes with descriptive messages
+6. **Task 2.3: Complete Import API**
+   - Add file upload support
+   - Integrate streaming parser
+   - Progress tracking UI
+   - Test with full parts.xml
+
+#### Session End (30-45 min)
+7. Document progress
+8. Test full import workflow
+9. Update roadmap documents
+10. Commit changes
+
+### If Pursuing Path B (Production Hardening)
+
+#### Focus Areas
+1. End-to-end workflow documentation
+2. Error handling improvements
+3. Performance testing with larger datasets
+4. User experience refinements
+5. Code cleanup and optimization
 
 ---
 
