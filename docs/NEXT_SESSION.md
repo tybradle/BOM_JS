@@ -7,19 +7,20 @@ Complete Phase 2 (Master Parts Database) and begin Phase 3 (UI Integration)
 
 ## 🚦 Start Here
 
-### 1. First: Resolve Dev Server Issue
+### 1. First: Verify Dev Server Starts on Port 3001
 ```bash
-# Check what's using port 3000
-netstat -ano | findstr :3000
+# Server is already configured to use port 3001 (not 3000)
+# Check if server starts successfully
+npm run dev
 
-# If needed, kill the process (use PID from above)
-taskkill /PID <PID> /F
+# If you encounter port conflicts, verify what's using ports:
+netstat -ano | findstr :3001
 
-# Start dev server
+# Start dev server (should run on http://localhost:3001)
 npm run dev
 ```
 
-**Alternative:** Change port in `server.ts` if port 3000 is permanently blocked.
+**Note:** The server is already configured to use port 3001 in `server.ts`, so the port 3000 issue may already be resolved.
 
 ---
 
@@ -27,11 +28,11 @@ npm run dev
 
 #### Test Export (Phase 1)
 ```bash
-# Assuming dev server running on http://localhost:3000
+# Assuming dev server running on http://localhost:3001
 
 # Create a test project with items
 # Then export it
-curl http://localhost:3000/api/projects/[id]/export > test-export.xml
+curl http://localhost:3001/api/projects/[id]/export > test-export.xml
 
 # Compare to sample
 # Expected: Matches structure of Samples/Export Sample/14247_Z2_MAIN_1.xml
@@ -40,7 +41,7 @@ curl http://localhost:3000/api/projects/[id]/export > test-export.xml
 #### Test Search API (Phase 2, Task 2.4)
 ```bash
 # Search for parts (will be empty until data imported)
-curl "http://localhost:3000/api/parts/search?q=test&page=1&limit=20"
+curl "http://localhost:3001/api/parts/search?q=test&page=1&limit=20"
 
 # Expected response:
 # { "results": [], "total": 0, "page": 1, "limit": 20, "hasMore": false }
@@ -105,16 +106,18 @@ npx prisma studio
 
 ## 🔧 Known Issues to Address
 
-### Issue 1: Port 3000 Permission Denied
-**Symptom:** `npm run dev` fails with "EACCES: permission denied"
+### Issue 1: Port Verification
+**Symptom:** `npm run dev` fails with port-related errors
 
-**Solutions:**
-1. Kill process using port 3000 (see command above)
-2. Change port in `server.ts`:
-   ```typescript
-   const port = process.env.PORT || 3001  // Changed from 3000
-   ```
-3. Run VS Code as administrator (Windows)
+**Current Status:** Server is already configured to use port 3001 in `server.ts`:
+```typescript
+const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+```
+
+**Solutions if needed:**
+1. Verify port 3001 is available: `netstat -ano | findstr :3001`
+2. If port 3001 is blocked, kill the process or change to another port
+3. Run VS Code as administrator (Windows) if permission issues persist
 
 ---
 
@@ -133,26 +136,44 @@ npm run db:generate  # Regenerate client
 ## 📋 Task Priority Queue
 
 ### High Priority (Do First)
-1. **Create seed script** - Load test parts data
-2. **Test search API** - Verify fuzzy search works
-3. **Test export** - Validate XML output
+1. **Verify dev server** - Confirm port 3001 works
+2. **Create seed script** - Load test parts data
+3. **Test export functionality** - Validate XML output with sample data
+4. **Test search API** - Verify fuzzy search works with seeded data
 
 ### Next Priority (After Testing)
-4. **Task 2.2: XML Streaming Parser** (90 min, HIGH complexity)
+5. **Task 2.2: XML Streaming Parser** (90-120 min, HIGH complexity) - Detailed Implementation
    - Install `sax` package: `npm install sax @types/sax`
-   - Create `src/lib/xml-streaming-parser.ts`
-   - Test with small XML sample first
+   - Create `src/lib/xml-streaming-parser.ts` with async generator function
+   - Implement SAX parser event handlers for `<Part>` elements
+   - Add batch processing with configurable batch size (default 1000)
+   - Implement progress tracking callback support
+   - Add error handling for malformed XML
+   - Create unit tests with sample XML data
+   - Test memory efficiency with large files
 
-5. **Task 2.3: Complete Import API** (60 min, depends on 2.2)
-   - Add file upload to import route
-   - Integrate streaming parser
-   - Test with full parts.xml
+6. **Task 2.3: Complete Import API** (60-90 min, depends on 2.2)
+   - Add multipart/form-data file upload to import route
+   - Integrate streaming parser with file upload
+   - Implement progress tracking for large imports
+   - Test with full parts.xml (362MB)
 
 ### Following (After Import Works)
-6. **Task 3.1: Part Search Dialog** (120 min, HIGH complexity)
+7. **Task 3.1: Part Search Dialog** (120 min, HIGH complexity)
    - Create `src/components/PartSearchDialog.tsx`
    - Use shadcn/ui Dialog component
-   - Connect to search API
+   - Connect to search API with debounced search
+   - Add pagination and filtering
+
+8. **Task 3.2: Integrate Part Search into BOM Table**
+   - Add "Add from Catalog" button
+   - Connect PartSearchDialog to BOM table
+   - Auto-populate BOM items from selected parts
+
+9. **Task 3.3: Add Part Lookup on Part Number Entry**
+   - Implement auto-suggest when typing part numbers
+   - Add dropdown with matching parts
+   - Include "Search all..." option
 
 ---
 
@@ -172,9 +193,9 @@ npm run db:generate  # Regenerate client
 - **BOM Table:** `src/components/editable-bom-table.tsx` ✅ (5 new columns)
 
 ### To Create Next
+- **Seed Script:** `scripts/seed-parts.ts` ⏹️
 - **Streaming Parser:** `src/lib/xml-streaming-parser.ts` ⏹️
 - **Part Search Dialog:** `src/components/PartSearchDialog.tsx` ⏹️
-- **Seed Script:** `scripts/seed-parts.ts` ⏹️
 
 ---
 
@@ -262,28 +283,35 @@ Example commit messages:
 
 ## 🚀 Recommended Session Flow
 
-### Session Start (30 min)
-1. Resolve port issue
-2. Test what's been built
-3. Create seed script and load test data
+### Session Start (30-45 min)
+1. Verify dev server starts on port 3001
+2. Create seed script and load test parts data
+3. Test export functionality with sample data
+4. Test search API with seeded data
 
-### Main Work (2-3 hours)
-4. **Focus: Task 2.2** - XML streaming parser
-   - This is the most complex remaining backend task
-   - Requires sustained focus
-   - Test thoroughly with sample data
+### Main Work (3-4 hours)
+5. **Focus: Task 2.2** - XML streaming parser (Detailed Implementation)
+   - Install sax package and create parser module
+   - Implement core parsing logic with SAX events
+   - Add batch processing and progress tracking
+   - Implement robust error handling
+   - Create and run unit tests
+   - Test memory efficiency with sample files
 
-5. **Complete Task 2.3** - Full import API
-   - Should flow naturally after parser is done
-   - Test with full 362MB file
+6. **Complete Task 2.3** - Full import API with file upload
+   - Add multipart/form-data support
+   - Integrate streaming parser with import route
+   - Implement progress tracking for large imports
+   - Test with full 362MB parts.xml file
 
-### Session End (30 min)
-6. Document progress
-7. Test full import workflow
-8. Plan next session (Phase 3 UI work)
+### Session End (30-45 min)
+7. Document progress in implementation-roadmap.md
+8. Test full import workflow end-to-end
+9. Plan next session (Phase 3 UI integration tasks)
+10. Commit changes with descriptive messages
 
 ---
 
 **Ready to continue! 🚀**
 
-Recommended first action: Fix port 3000 issue and test current implementations.
+Recommended first action: Verify dev server on port 3001, create seed script, and test current implementations.
