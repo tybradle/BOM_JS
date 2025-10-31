@@ -19,9 +19,11 @@ import {
   Trash2,
   Edit,
   Calendar,
-  FileText
+  FileText,
+  Database
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
+import { DatabaseToolsDialog } from '@/components/DatabaseToolsDialog'
 
 const features = [
   {
@@ -37,6 +39,7 @@ const features = [
 export default function LandingPage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false)
+  const [isDatabaseToolsOpen, setIsDatabaseToolsOpen] = useState(false)
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false)
   const [newProject, setNewProject] = useState({ 
     projectNumber: '', 
@@ -132,6 +135,14 @@ export default function LandingPage() {
                   </Button>
                 </DialogTrigger>
               </Dialog>
+              <DatabaseToolsDialog open={isDatabaseToolsOpen} onOpenChange={setIsDatabaseToolsOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Database className="w-4 h-4 mr-2" />
+                    Database Tools
+                  </Button>
+                </DialogTrigger>
+              </DatabaseToolsDialog>
               <Button variant="ghost" size="sm">Settings</Button>
             </nav>
           </div>
@@ -308,6 +319,11 @@ export default function LandingPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              <Button variant="outline" size="lg" onClick={() => setIsDatabaseToolsOpen(true)}>
+                <Database className="w-5 h-5 mr-2" />
+                Database Tools
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>

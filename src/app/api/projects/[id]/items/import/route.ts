@@ -27,6 +27,7 @@ export async function POST(
     
     const file = formData.get('file') as File
     const locationId = formData.get('locationId') as string
+    const addToDatabase = formData.get('addToDatabase') === 'true'
     
     if (!file) {
       return NextResponse.json(
@@ -161,6 +162,83 @@ export async function POST(
 
     console.log('Validation complete. Valid:', validRows.length, 'Invalid:', errors.length)
 
+    // Build map of unique parts to add to database (if requested)
+    interface PartToAdd {
+      partNumber: string
+      manufacturer: string
+      description: string
+      secondaryDescription?: string | null
+      category?: string | null
+      unitPrice?: number | null
+      currency?: string | null
+      supplier?: string | null
+    }
+
+    const partsToAddMap = new Map<string, PartToAdd>()
+    
+    if (addToDatabase) {
+      validRows.forEach(row => {
+        const partKey = row.partNumber.trim()
+        if (!partsToAddMap.has(partKey)) {
+          partsToAddMap.set(partKey, {
+            partNumber: row.partNumber,
+            manufacturer: row.manufacturer || 'Unknown',
+            description: row.description,
+            secondaryDescription: row.secondaryDescription,
+            category: row.category,
+            unitPrice: row.unitPrice,
+            currency: 'USD', // Default currency
+            supplier: row.supplier
+          })
+        } else {
+          // Merge metadata - prefer non-empty values
+          const existing = partsToAddMap.get(partKey)!
+          if (!existing.manufacturer && row.manufacturer) {
+            existing.manufacturer = row.manufacturer
+          }
+          if (!existing.category && row.category) {
+            existing.category = row.category
+          }
+          if (!existing.supplier && row.supplier) {
+            existing.supplier = row.supplier
+          }
+          if (!existing.unitPrice && row.unitPrice) {
+            existing.unitPrice = row.unitPrice
+          }
+        }
+      })
+    }
+
+    // Add parts to database before importing BOM items
+    let databaseAddResults: any = null
+    
+    if (addToDatabase && partsToAddMap.size > 0) {
+      console.log(`Adding ${partsToAddMap.size} unique parts to database...`)
+      
+      try {
+        const partsArray = Array.from(partsToAddMap.values())
+        
+        const batchResponse = await fetch(`http://localhost:3002/api/parts/batch-create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            parts: partsArray,
+            source: 'bom-import'
+          })
+        })
+        
+        if (batchResponse.ok) {
+          databaseAddResults = await batchResponse.json()
+          console.log(`Database update: ${databaseAddResults.created} created, ${databaseAddResults.skipped} skipped`)
+        } else {
+          console.warn('Database add failed, continuing with BOM import')
+        }
+      } catch (error) {
+        console.error('Database add failed, continuing with BOM import:', error)
+        // Don't throw - let BOM import continue
+      }
+    }
+
     // Import valid rows in batches
     let imported = 0
     const batchSize = 100
@@ -204,7 +282,12 @@ export async function POST(
           row: e.row,
           error: e.errors.join(', ')
         }))
-      }
+      },
+      databaseAdded: databaseAddResults ? {
+        created: databaseAddResults.created,
+        skipped: databaseAddResults.skipped,
+        errors: databaseAddResults.errors
+      } : null
     })
 
   } catch (error) {

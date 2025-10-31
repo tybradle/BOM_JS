@@ -10,8 +10,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Upload, FileUp, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Upload, FileUp, Loader2, CheckCircle2, XCircle, AlertCircle, Database } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
@@ -30,6 +32,7 @@ interface ParsedRow {
   errors: string[]
   rowNumber: number
   errorType?: 'missing' | 'duplicate' // Track error type for styling
+  isMissingFromDatabase?: boolean // Track if part doesn't exist in MasterPart database
 }
 
 export function ImportPreviewDialog({ 
@@ -43,6 +46,9 @@ export function ImportPreviewDialog({
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [isImporting, setIsImporting] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [missingFromDatabase, setMissingFromDatabase] = useState<Set<string>>(new Set())
+  const [checkingDatabase, setCheckingDatabase] = useState(false)
+  const [addMissingToDatabase, setAddMissingToDatabase] = useState(true)
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     if (!selectedFile) return
@@ -124,6 +130,48 @@ export function ImportPreviewDialog({
 
       setParsedRows(previewRows)
 
+      // Check which parts are missing from the MasterPart database
+      const uniquePartNumbers = Array.from(
+        new Set(
+          previewRows
+            .map(row => getFieldValue(row.data, ['part number', 'partnumber', 'part#', 'p/n']))
+            .filter(pn => pn && pn.trim() !== '')
+        )
+      )
+
+      if (uniquePartNumbers.length > 0) {
+        setCheckingDatabase(true)
+        try {
+          const checkResponse = await fetch('/api/parts/check-missing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumbers: uniquePartNumbers })
+          })
+
+          if (checkResponse.ok) {
+            const checkResult = await checkResponse.json()
+            const missingSet = new Set<string>(checkResult.missing || [])
+            setMissingFromDatabase(missingSet)
+
+            // Update parsedRows to mark which ones are missing from database
+            const updatedRows = previewRows.map(row => {
+              const partNumber = getFieldValue(row.data, ['part number', 'partnumber', 'part#', 'p/n'])
+              const isMissing = partNumber && partNumber.trim() !== '' && missingSet.has(partNumber.trim())
+              return {
+                ...row,
+                isMissingFromDatabase: isMissing ? true : false
+              }
+            })
+            setParsedRows(updatedRows)
+          }
+        } catch (error) {
+          console.error('Failed to check database:', error)
+          // Non-fatal error, continue without database check
+        } finally {
+          setCheckingDatabase(false)
+        }
+      }
+
       const totalRows = rows.length
       const validCount = previewRows.filter(r => r.isValid).length
       const missingCount = previewRows.filter(r => !r.isValid && r.errorType === 'missing').length
@@ -179,6 +227,7 @@ export function ImportPreviewDialog({
       const formData = new FormData()
       formData.append('file', file)
       formData.append('locationId', locationId)
+      formData.append('addToDatabase', String(addMissingToDatabase))
 
       const response = await fetch(`/api/projects/${projectId}/items/import`, {
         method: 'POST',
@@ -199,10 +248,20 @@ export function ImportPreviewDialog({
 
       const result = await response.json()
 
-      // Simple success message - duplicates already shown in preview
+      // Success message with database additions
       if (result.summary.imported > 0) {
+        let description = `Successfully imported ${result.summary.imported} items`
+        
+        if (result.databaseAdded?.created > 0) {
+          description += `\nAdded ${result.databaseAdded.created} new parts to database`
+        }
+        
+        if (result.databaseAdded?.skipped > 0) {
+          description += `\n${result.databaseAdded.skipped} parts already existed in database`
+        }
+        
         toast.success('Import complete!', {
-          description: `Successfully imported ${result.summary.imported} items`
+          description
         })
       } else {
         toast.error('No items imported', {
@@ -226,12 +285,16 @@ export function ImportPreviewDialog({
   const handleClose = () => {
     setFile(null)
     setParsedRows([])
+    setMissingFromDatabase(new Set())
+    setCheckingDatabase(false)
+    setAddMissingToDatabase(true)
     onClose()
   }
 
   const validCount = parsedRows.filter(r => r.isValid).length
   const missingCount = parsedRows.filter(r => !r.isValid && r.errorType === 'missing').length
   const duplicateCount = parsedRows.filter(r => !r.isValid && r.errorType === 'duplicate').length
+  const notInDatabaseCount = parsedRows.filter(r => r.isValid && r.isMissingFromDatabase).length
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -305,7 +368,7 @@ export function ImportPreviewDialog({
 
               {/* Summary Stats */}
               {parsedRows.length > 0 && (
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-5 gap-3">
                   <div className="p-3 border rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -326,6 +389,22 @@ export function ImportPreviewDialog({
                       <span className="text-sm font-medium">Duplicate</span>
                     </div>
                     <p className="text-2xl font-bold">{duplicateCount}</p>
+                  </div>
+                  <div className="p-3 border rounded-lg bg-orange-50/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium">Not in DB</span>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-600">{notInDatabaseCount}</p>
+                    {checkingDatabase && (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Checking...
+                      </p>
+                    )}
+                    {!checkingDatabase && notInDatabaseCount > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">Can be added</p>
+                    )}
                   </div>
                   <div className="p-3 border rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
@@ -382,7 +461,15 @@ export function ImportPreviewDialog({
                                 )}
                               </TableCell>
                               <TableCell className="font-medium">
-                                {getFieldValue(row.data, ['part number', 'partnumber', 'part#', 'p/n'])}
+                                <div className="flex items-center gap-2">
+                                  {getFieldValue(row.data, ['part number', 'partnumber', 'part#', 'p/n'])}
+                                  {row.isValid && row.isMissingFromDatabase && (
+                                    <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs">
+                                      <Database className="h-3 w-3 mr-1" />
+                                      New
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 {getFieldValue(row.data, ['description', 'desc', 'name'])}
@@ -407,26 +494,42 @@ export function ImportPreviewDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isImporting}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleImport} 
-            disabled={!file || parsedRows.length === 0 || missingCount > 0 || duplicateCount > 0 || isImporting}
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <FileUp className="mr-2 h-4 w-4" />
-                Import {validCount > 0 && `${validCount} Items`}
-              </>
+        <DialogFooter className="flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            {notInDatabaseCount > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  id="add-to-database"
+                  checked={addMissingToDatabase}
+                  onCheckedChange={(checked) => setAddMissingToDatabase(checked as boolean)}
+                />
+                <label htmlFor="add-to-database" className="cursor-pointer text-muted-foreground">
+                  Add <span className="font-semibold text-orange-600">{notInDatabaseCount}</span> missing part{notInDatabaseCount !== 1 ? 's' : ''} to database
+                </label>
+              </div>
             )}
-          </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleClose} disabled={isImporting}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleImport} 
+              disabled={!file || parsedRows.length === 0 || missingCount > 0 || duplicateCount > 0 || isImporting}
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <FileUp className="mr-2 h-4 w-4" />
+                  Import {validCount > 0 && `${validCount} Items`}
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

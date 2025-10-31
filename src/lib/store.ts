@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import type { DatabaseArchiveEntry } from '@/types/database'
 
 export interface BOMItem {
   id: string
@@ -37,6 +38,27 @@ export interface BOMProject {
   itemCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface DatabaseImportResult {
+  message: string
+  backup: string | null
+  validation: {
+    tables: string[]
+    integrity: string
+  }
+}
+
+export interface MasterPartsImportResult {
+  success: boolean
+  format: string
+  summary: {
+    totalParsed: number
+    imported: number
+    updated: number
+    errors: number
+    duration: string
+  }
 }
 
 interface Location {
@@ -93,6 +115,12 @@ interface BOMStore {
   deleteBOMItem: (itemId: string) => Promise<void>
   exportBOM: (projectId: string, format: 'XML' | 'JSON' | 'CSV') => Promise<{ content: string; filename: string }>
   importBOM: (projectId: string, items: any[], format: string) => Promise<void>
+  downloadDatabaseArchive: () => Promise<{ blob: Blob; filename: string }>
+  uploadDatabaseArchive: (file: File) => Promise<DatabaseImportResult>
+  launchPrismaStudio: () => Promise<{ url: string }>
+  fetchDatabaseArchives: () => Promise<DatabaseArchiveEntry[]>
+  importDatabaseArchivePath: (archivePath: string) => Promise<DatabaseImportResult>
+  uploadMasterParts: (file: File, clearExisting?: boolean) => Promise<MasterPartsImportResult>
   
   // Excel-like Actions
   updateCell: (itemId: string, field: string, value: any) => void
@@ -408,6 +436,159 @@ export const useBOMStore = create<BOMStore>()(
         }
       },
       
+      downloadDatabaseArchive: async () => {
+        try {
+          const response = await fetch('/api/database/export', {
+            method: 'GET'
+          })
+
+          if (!response.ok) {
+            let message = 'Failed to export database'
+            try {
+              const data = await response.json()
+              message = data?.error ?? message
+            } catch {
+              // Ignore JSON parsing errors
+            }
+            throw new Error(message)
+          }
+
+          const contentDisposition = response.headers.get('content-disposition') || ''
+          const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+          const filename = filenameMatch?.[1] ?? 'bom-database-backup.zip'
+          const blob = await response.blob()
+
+          return { blob, filename }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to export database'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      uploadDatabaseArchive: async (file) => {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+
+          const response = await fetch('/api/database/import', {
+            method: 'POST',
+            body: formData
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to import database'
+            throw new Error(message)
+          }
+
+          return data as DatabaseImportResult
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to import database'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      launchPrismaStudio: async () => {
+        try {
+          const response = await fetch('/api/database/studio', {
+            method: 'POST'
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to launch Prisma Studio'
+            throw new Error(message)
+          }
+
+          return data as { url: string }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to launch Prisma Studio'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      fetchDatabaseArchives: async () => {
+        try {
+          const response = await fetch('/api/database/archives', {
+            method: 'GET'
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to fetch database archives'
+            throw new Error(message)
+          }
+
+          return (data.archives ?? []) as DatabaseArchiveEntry[]
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to fetch database archives'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      importDatabaseArchivePath: async (archivePath) => {
+        try {
+          const formData = new FormData()
+          formData.append('archivePath', archivePath)
+
+          const response = await fetch('/api/database/import', {
+            method: 'POST',
+            body: formData
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to import database archive'
+            throw new Error(message)
+          }
+
+          return data as DatabaseImportResult
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to import database archive'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      uploadMasterParts: async (file, clearExisting = false) => {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('clearExisting', String(clearExisting))
+
+          const response = await fetch('/api/parts/import', {
+            method: 'POST',
+            body: formData
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            const message = errorData.error || errorData.message || 'Failed to import master parts'
+            throw new Error(message)
+          }
+
+          const data = await response.json()
+          
+          if (!data.success) {
+            throw new Error(data.error || 'Import failed')
+          }
+
+          return data as MasterPartsImportResult
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to upload master parts'
+          set({ error: message })
+          throw error
+        }
+      },
+
       // Excel-like Actions
       updateCell: (itemId, field, value) => {
         set(state => ({

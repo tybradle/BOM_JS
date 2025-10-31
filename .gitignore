@@ -27,8 +27,6 @@
 # database files
 db/custom.db
 db/custom.db.*
-prisma/db/custom.db
-prisma/db/custom.db.*
 *.db
 *.db-journal
 *.db-shm

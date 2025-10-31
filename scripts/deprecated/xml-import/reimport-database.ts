@@ -16,8 +16,9 @@ import { spawn } from 'child_process'
 import FormData from 'form-data'
 import axios from 'axios'
 
-const DB_PATH = path.join(__dirname, '..', 'db', 'custom.db')
-const PARTS_FILE = path.join(__dirname, '..', 'Samples', 'Import Sample', 'parts.xml')
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..')
+const DB_PATH = path.join(PROJECT_ROOT, 'db', 'custom.db')
+const PARTS_FILE = path.join(PROJECT_ROOT, 'Samples', 'Import Sample', 'parts.xml')
 const API_URL = 'http://127.0.0.1:3002/api/parts/import'
 
 // ANSI escape codes for terminal colors and cursor control

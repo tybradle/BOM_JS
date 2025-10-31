@@ -8,9 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { 
   Plus, 
@@ -22,7 +20,6 @@ import {
   Search,
   Filter,
   RefreshCw,
-  Import,
   FileSpreadsheet,
   ArrowLeft,
   FolderOpen
@@ -56,7 +53,6 @@ export default function BOMProjectPage() {
     updateBOMItem,
     deleteBOMItem,
     exportBOM,
-    importBOM,
     setCurrentProject,
     setCurrentLocation,
     setSearchTerm,
@@ -66,7 +62,6 @@ export default function BOMProjectPage() {
   } = useBOMStore()
 
   const [isAddItemOpen, setIsAddItemOpen] = useState(false)
-  const [isImportOpen, setIsImportOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isDatabaseOpen, setIsDatabaseOpen] = useState(false)
   const [newItem, setNewItem] = useState({
@@ -78,7 +73,6 @@ export default function BOMProjectPage() {
     supplier: '',
     category: ''
   })
-  const [importData, setImportData] = useState('')
   const [appVersion, setAppVersion] = useState('')
 
   const { toast } = useToast()
@@ -93,11 +87,6 @@ export default function BOMProjectPage() {
         switch (action) {
           case 'menu-new-project':
             router.push('/')
-            break
-          case 'menu-import-csv':
-            if (currentLocationId) {
-              setIsImportOpen(true)
-            }
             break
           case 'menu-export-xml':
             if (currentProject) {
@@ -207,45 +196,6 @@ export default function BOMProjectPage() {
     }
   }
 
-  const handleImport = async () => {
-    if (!currentProject || !importData || !currentLocationId) return
-
-    try {
-      // Parse CSV data (simple implementation)
-      const lines = importData.trim().split('\n')
-      const headers = lines[0].split(',').map(h => h.trim())
-      
-      const items = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
-        return {
-          partNumber: values[0] || '',
-          description: values[1] || '',
-          quantity: parseFloat(values[2]) || 1,
-          unit: values[3] || 'PCS',
-          manufacturer: values[4] || '',
-          supplier: values[5] || '',
-          category: values[6] || '',
-          locationId: currentLocationId
-        }
-      }).filter(item => item.partNumber && item.description)
-
-      await importBOM(currentProject.id, items, 'CSV')
-      setImportData('')
-      setIsImportOpen(false)
-
-      toast({
-        title: "Import successful",
-        description: `${items.length} items imported successfully.`
-      })
-    } catch (error) {
-      toast({
-        title: "Import failed",
-        description: "Failed to import data. Please check the format.",
-        variant: "destructive"
-      })
-    }
-  }
-
   const handleLocationAdd = async (name: string) => {
     if (!currentProject) return
     await createLocation(currentProject.id, name)
@@ -307,16 +257,6 @@ export default function BOMProjectPage() {
         variant: "destructive"
       })
     }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      ACTIVE: 'default',
-      DRAFT: 'secondary',
-      COMPLETED: 'default',
-      ARCHIVED: 'secondary'
-    }
-    return <Badge variant={variants[status]}>{status}</Badge>
   }
 
   const filteredItems = bomItems.filter(item =>
@@ -432,28 +372,6 @@ export default function BOMProjectPage() {
 
         <Separator />
 
-        {/* Project Info */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>
-                  {currentProject.name || `${currentProject.projectNumber} - ${currentProject.packageName}`}
-                </CardTitle>
-                <CardDescription>
-                  {currentProject.description || `${currentProject.projectNumber} - ${currentProject.packageName}`}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {getStatusBadge(currentProject.status)}
-                <Badge variant="outline">
-                  Version {currentProject.version}
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
         {/* Main BOM Content */}
         <Card>
           <CardHeader>
@@ -465,38 +383,6 @@ export default function BOMProjectPage() {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" disabled={!currentLocationId}>
-                      <Import className="w-4 h-4 mr-2" />
-                      Import
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Import BOM Data</DialogTitle>
-                      <DialogDescription>
-                        Import BOM items from CSV format. Headers: Part Number, Description, Quantity, Unit, Manufacturer, Supplier, Category
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="import-data">CSV Data</Label>
-                        <Textarea
-                          id="import-data"
-                          value={importData}
-                          onChange={(e) => setImportData(e.target.value)}
-                          placeholder="Part Number,Description,Quantity,Unit,Manufacturer,Supplier,Category"
-                          rows={10}
-                        />
-                      </div>
-                      <Button onClick={handleImport} className="w-full" disabled={loading || !importData || !currentLocationId}>
-                        {loading ? 'Importing...' : 'Import Items'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                
                 <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
                   <DialogContent className="max-w-lg">
                     <DialogHeader>
@@ -724,11 +610,6 @@ export default function BOMProjectPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                
-                <Button variant="outline" size="sm" disabled={!currentProject}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
               </div>
             </div>
           </CardHeader>
@@ -762,23 +643,6 @@ export default function BOMProjectPage() {
                 <Button variant="outline" size="sm" onClick={() => fetchBOMItems(currentProject.id, currentLocationId)}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
-                </Button>
-              </div>
-
-              {/* Export Options */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Export as:</span>
-                <Button variant="outline" size="sm" onClick={() => handleExport('XML')}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  XML
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleExport('CSV')}>
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleExport('JSON')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  JSON
                 </Button>
               </div>
 

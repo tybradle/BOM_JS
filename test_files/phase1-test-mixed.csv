@@ -1,0 +1,7 @@
+Part Number,Description,Quantity,Unit,Manufacturer,Category
+EXISTING-001,Test Part That Exists,5,EA,Test Manufacturer,Category A
+NEW-PART-001,New Part Not In Database,10,EA,New Vendor,Motors
+EXISTING-002,Another Existing Part,2,EA,Test Manufacturer,Category B
+NEW-PART-002,Second New Part,15,EA,New Vendor,Sensors
+NEW-PART-003,Third New Part,8,EA,Unknown Mfr,Controls
+EXISTING-003,Third Existing Part,3,EA,Test Manufacturer,Category A

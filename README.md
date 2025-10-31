@@ -187,6 +187,11 @@ DATABASE_URL="file:./db/custom.db"
 ### Database Configuration
 The framework uses SQLite by default for local development. The database file is located at `db/custom.db`.
 
+- The landing page **Database Tools** dialog supports exporting zipped backups, importing archives (uploaded or previously exported), and launching Prisma Studio. See `docs/DATABASE_MANAGEMENT_DIALOG.md` for the complete workflow.
+- Automated checks:
+   - `npm run test-db-transfer` – round-trip export/import smoke test (requires `db/custom.db`).
+   - `npm run test-db-archives` – validates archive discovery ordering and path guardrails.
+
 ## Production Deployment
 
 ### Building for Production
