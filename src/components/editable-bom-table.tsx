@@ -15,16 +15,27 @@ import {
   X, 
   ChevronUp, 
   ChevronDown,
-  MoreHorizontal
+  MoreHorizontal,
+  Search,
+  Plus,
+  FileDown,
+  FileUp
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
 import { BOMItem } from '@/lib/store'
+import { PartSearchDialog } from './PartSearchDialog'
+import { ExportDialog } from './ExportDialog'
+import { ImportPreviewDialog } from './ImportPreviewDialog'
+import { useToast } from '@/hooks/use-toast'
 
 interface EditableTableProps {
   items: BOMItem[]
   onItemUpdate: (itemId: string, field: string, value: any) => void
   onItemsDelete: (itemIds: string[]) => void
   onItemsDuplicate: (itemIds: string[]) => void
+  addItemButton?: React.ReactNode
+  onAddItemClick?: () => void
+  currentLocationName?: string
 }
 
 interface EditingCell {
@@ -37,12 +48,20 @@ export function EditableBOMTable({
   items, 
   onItemUpdate, 
   onItemsDelete, 
-  onItemsDuplicate 
+  onItemsDuplicate,
+  addItemButton,
+  onAddItemClick,
+  currentLocationName
 }: EditableTableProps) {
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [sortConfig, setSortConfig] = useState<{ key: keyof BOMItem; direction: 'asc' | 'desc' } | null>(null)
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const editInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+  const { currentProject, currentLocationId, addBOMItem, fetchBOMItems } = useBOMStore()
 
   useEffect(() => {
     if (editingCell && editInputRef.current) {
@@ -108,6 +127,45 @@ export function EditableBOMTable({
   const handleBulkDuplicate = () => {
     if (selectedItems.length > 0) {
       onItemsDuplicate(selectedItems)
+    }
+  }
+
+  const handlePartSelected = async (part: any) => {
+    if (!currentProject || !currentLocationId) {
+      toast({
+        title: "Error",
+        description: "No project or location selected",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await addBOMItem(currentProject.id, {
+        locationId: currentLocationId,
+        partNumber: part.partNumber,
+        manufacturer: part.manufacturer || '',
+        description: part.description,
+        secondaryDescription: part.secondaryDescription || '',
+        category: part.category || '',
+        quantity: 1,
+        unit: 'EA',
+        unitPrice: part.unitPrice || null,
+        status: 'ACTIVE',
+        isSpare: false,
+        referenceDesignator: ''
+      })
+
+      toast({
+        title: "Part Added",
+        description: `${part.partNumber} added to BOM`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add part to BOM",
+        variant: "destructive"
+      })
     }
   }
 
@@ -221,6 +279,49 @@ export function EditableBOMTable({
 
   return (
     <div className="space-y-4">
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2">
+        <Button 
+          onClick={() => setSearchDialogOpen(true)}
+          variant="default"
+          size="sm"
+        >
+          <Search className="w-4 h-4 mr-2" />
+          Add from Catalog
+        </Button>
+        {onAddItemClick && (
+          <Button 
+            onClick={onAddItemClick}
+            variant="default"
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item{currentLocationName ? ` to ${currentLocationName}` : ''}
+          </Button>
+        )}
+        {currentLocationId && (
+          <Button 
+            onClick={() => setImportDialogOpen(true)}
+            variant="outline"
+            size="sm"
+          >
+            <FileUp className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+        )}
+        {currentProject && (
+          <Button 
+            onClick={() => setExportDialogOpen(true)}
+            variant="outline"
+            size="sm"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+        )}
+        {addItemButton}
+      </div>
+
       {/* Bulk Actions */}
       {selectedItems.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
@@ -450,6 +551,40 @@ export function EditableBOMTable({
             Cancel
           </Button>
         </div>
+      )}
+
+      {/* Part Search Dialog */}
+      <PartSearchDialog
+        open={searchDialogOpen}
+        onOpenChange={setSearchDialogOpen}
+        onSelect={handlePartSelected}
+      />
+
+      {/* Export Dialog */}
+      {currentProject && (
+        <ExportDialog
+          open={exportDialogOpen}
+          onClose={() => setExportDialogOpen(false)}
+          projectId={currentProject.id}
+          projectNumber={currentProject.projectNumber}
+          packageName={currentProject.packageName}
+        />
+      )}
+
+      {/* Import Dialog */}
+      {currentProject && currentLocationId && (
+        <ImportPreviewDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          projectId={currentProject.id}
+          locationId={currentLocationId}
+          onImportComplete={() => {
+            // Refresh the BOM items after import
+            if (fetchBOMItems) {
+              fetchBOMItems(currentProject.id, currentLocationId)
+            }
+          }}
+        />
       )}
     </div>
   )

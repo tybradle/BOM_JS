@@ -45,7 +45,8 @@ export async function POST(
       manufacturer,
       supplier,
       category,
-      locationId
+      locationId,
+      forceCreate = false // Allow bypassing duplicate check
     } = body
 
     if (!partNumber || !description || !quantity || !unit) {
@@ -71,10 +72,22 @@ export async function POST(
       }
     })
 
-    if (existingItem) {
+    // If duplicate found and not forcing creation, return duplicate warning
+    if (existingItem && !forceCreate) {
       return NextResponse.json(
-        { error: 'Part number already exists in this location' },
-        { status: 400 }
+        {
+          duplicate: true,
+          existingItem: {
+            id: existingItem.id,
+            partNumber: existingItem.partNumber,
+            description: existingItem.description,
+            quantity: existingItem.quantity,
+            manufacturer: existingItem.manufacturer,
+            unitPrice: existingItem.unitPrice
+          },
+          message: 'This part number already exists in this location'
+        },
+        { status: 409 } // Conflict status code
       )
     }
 

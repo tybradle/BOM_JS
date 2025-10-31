@@ -42,6 +42,7 @@ export interface BOMProject {
 interface Location {
   id: string
   name: string
+  exportName?: string | null
   order: number
   projectId: string
   itemCount: number
@@ -84,6 +85,7 @@ interface BOMStore {
   deleteProject: (projectId: string) => Promise<void>
   fetchLocations: (projectId: string) => Promise<void>
   createLocation: (projectId: string, name: string) => Promise<void>
+  updateLocation: (locationId: string, name: string, exportName?: string | null) => Promise<void>
   deleteLocation: (locationId: string) => Promise<void>
   fetchBOMItems: (projectId: string, locationId?: string) => Promise<void>
   addBOMItem: (projectId: string, item: Omit<BOMItem, 'id' | 'createdAt' | 'updatedAt' | 'order'> & { locationId: string }) => Promise<void>
@@ -134,8 +136,13 @@ export const useBOMStore = create<BOMStore>()(
           const response = await fetch('/api/projects')
           if (!response.ok) throw new Error('Failed to fetch projects')
           const data = await response.json()
+          // Map _count.items to itemCount for consistency
+          const projects = (data.projects || data).map((p: any) => ({
+            ...p,
+            itemCount: p._count?.items || 0
+          }))
           set({ 
-            projects: data.projects || data, // Handle both response formats
+            projects,
             loading: false 
           })
         } catch (error) {
@@ -168,8 +175,13 @@ export const useBOMStore = create<BOMStore>()(
           })
           if (!response.ok) throw new Error('Failed to create project')
           const newProject = await response.json()
+          // Map _count.items to itemCount for consistency
+          const mappedProject = {
+            ...newProject,
+            itemCount: newProject._count?.items || 0
+          }
           set(state => ({ 
-            projects: [newProject, ...state.projects],
+            projects: [mappedProject, ...state.projects],
             loading: false 
           }))
         } catch (error) {
@@ -228,6 +240,32 @@ export const useBOMStore = create<BOMStore>()(
             locations: [...state.locations, newLocation],
             currentLocationId: newLocation.id,
             loading: false 
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      updateLocation: async (locationId, name, exportName) => {
+        set({ loading: true, error: null })
+        try {
+          const { currentProject } = get()
+          if (!currentProject) throw new Error('No current project')
+          
+          const response = await fetch(`/api/projects/${currentProject.id}/locations/${locationId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, exportName })
+          })
+          if (!response.ok) throw new Error('Failed to update location')
+          const updatedLocation = await response.json()
+          
+          set(state => ({
+            locations: state.locations.map(loc => 
+              loc.id === locationId ? updatedLocation : loc
+            ),
+            loading: false
           }))
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
@@ -300,7 +338,10 @@ export const useBOMStore = create<BOMStore>()(
       
       updateBOMItem: async (itemId, updates) => {
         try {
-          const response = await fetch(`/api/bom-items/${itemId}`, {
+          const { currentProject } = get()
+          if (!currentProject) throw new Error('No current project')
+          
+          const response = await fetch(`/api/projects/${currentProject.id}/items/${itemId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates)
@@ -319,7 +360,10 @@ export const useBOMStore = create<BOMStore>()(
       
       deleteBOMItem: async (itemId) => {
         try {
-          const response = await fetch(`/api/bom-items/${itemId}`, {
+          const { currentProject } = get()
+          if (!currentProject) throw new Error('No current project')
+          
+          const response = await fetch(`/api/projects/${currentProject.id}/items/${itemId}`, {
             method: 'DELETE'
           })
           if (!response.ok) throw new Error('Failed to delete BOM item')

@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
-const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3002;
 const hostname = '127.0.0.1';
 
 // Custom server with Socket.IO integration
@@ -47,6 +47,37 @@ async function createCustomServer() {
       console.log(`> Ready on http://${hostname}:${currentPort}`);
       console.log(`> Socket.IO server running at ws://${hostname}:${currentPort}/api/socketio`);
     });
+
+    // Graceful shutdown handling
+    const shutdown = (signal: string) => {
+      console.log(`\n${signal} received. Closing server gracefully...`);
+      
+      // Close Socket.IO connections
+      io.close(() => {
+        console.log('Socket.IO server closed');
+      });
+      
+      // Close HTTP server
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+
+      // Force close after 5 seconds if graceful shutdown fails
+      setTimeout(() => {
+        console.error('Forcing shutdown after timeout');
+        process.exit(1);
+      }, 5000);
+    };
+
+    // Handle termination signals
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    
+    // Windows-specific signals
+    if (process.platform === 'win32') {
+      process.on('SIGBREAK', () => shutdown('SIGBREAK'));
+    }
 
   } catch (err) {
     console.error('Server startup error:', err);
