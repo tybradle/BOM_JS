@@ -369,10 +369,10 @@ export function EditableBOMTable({
                   variant="ghost"
                   size="sm"
                   className="h-auto p-0 font-semibold"
-                  onClick={() => handleSort('description')}
+                  onClick={() => handleSort('manufacturer')}
                 >
-                  Description
-                  <SortIcon column="description" />
+                  Manufacturer
+                  <SortIcon column="manufacturer" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -380,10 +380,10 @@ export function EditableBOMTable({
                   variant="ghost"
                   size="sm"
                   className="h-auto p-0 font-semibold"
-                  onClick={() => handleSort('secondaryDescription')}
+                  onClick={() => handleSort('description')}
                 >
-                  Description 2
-                  <SortIcon column="secondaryDescription" />
+                  Description
+                  <SortIcon column="description" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -417,17 +417,6 @@ export function EditableBOMTable({
                 >
                   Unit Price
                   <SortIcon column="unitPrice" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 font-semibold"
-                  onClick={() => handleSort('manufacturer')}
-                >
-                  Manufacturer
-                  <SortIcon column="manufacturer" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -482,10 +471,10 @@ export function EditableBOMTable({
                   {renderEditableCell(item, 'partNumber', item.partNumber)}
                 </TableCell>
                 <TableCell>
-                  {renderEditableCell(item, 'description', item.description)}
+                  {renderEditableCell(item, 'manufacturer', item.manufacturer || '')}
                 </TableCell>
                 <TableCell>
-                  {renderEditableCell(item, 'secondaryDescription', item.secondaryDescription || '')}
+                  {renderEditableCell(item, 'description', item.description)}
                 </TableCell>
                 <TableCell>
                   {renderEditableCell(item, 'quantity', item.quantity)}
@@ -495,9 +484,6 @@ export function EditableBOMTable({
                 </TableCell>
                 <TableCell>
                   {renderEditableCell(item, 'unitPrice', item.unitPrice || '')}
-                </TableCell>
-                <TableCell>
-                  {renderEditableCell(item, 'manufacturer', item.manufacturer || '')}
                 </TableCell>
                 <TableCell>
                   {renderEditableCell(item, 'supplier', item.supplier || '')}

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useBOMStore } from '@/lib/store'
+import { openProjectManager } from '@/lib/header-actions'
 import { EditableBOMTable } from '@/components/editable-bom-table'
 import { LocationTabs } from '@/components/LocationTabs'
 
@@ -64,6 +66,14 @@ export default function BOMProjectPage() {
   const [isAddItemOpen, setIsAddItemOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isDatabaseOpen, setIsDatabaseOpen] = useState(false)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [filters, setFilters] = useState({
+    status: 'ALL',
+    category: '',
+    manufacturer: '',
+    supplier: '',
+    isSpare: 'ALL'
+  })
   const [newItem, setNewItem] = useState({
     partNumber: '',
     description: '',
@@ -86,7 +96,7 @@ export default function BOMProjectPage() {
       window.electronAPI.onMenuAction((action: string) => {
         switch (action) {
           case 'menu-new-project':
-            router.push('/')
+            openProjectManager()
             break
           case 'menu-export-xml':
             if (currentProject) {
@@ -259,11 +269,36 @@ export default function BOMProjectPage() {
     }
   }
 
-  const filteredItems = bomItems.filter(item =>
-    item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredItems = bomItems.filter(item => {
+    // Search filter
+    const matchesSearch = 
+      item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Status filter
+    const matchesStatus = filters.status === 'ALL' || item.status === filters.status
+    
+    // Category filter
+    const matchesCategory = !filters.category || 
+      item.category?.toLowerCase().includes(filters.category.toLowerCase())
+    
+    // Manufacturer filter
+    const matchesManufacturer = !filters.manufacturer || 
+      item.manufacturer?.toLowerCase().includes(filters.manufacturer.toLowerCase())
+    
+    // Supplier filter
+    const matchesSupplier = !filters.supplier || 
+      item.supplier?.toLowerCase().includes(filters.supplier.toLowerCase())
+    
+    // Spare filter
+    const matchesSpare = filters.isSpare === 'ALL' || 
+      (filters.isSpare === 'YES' && item.isSpare) || 
+      (filters.isSpare === 'NO' && !item.isSpare)
+    
+    return matchesSearch && matchesStatus && matchesCategory && 
+           matchesManufacturer && matchesSupplier && matchesSpare
+  })
 
   // If loading, show loading state
   if (loading && !currentProject) {
@@ -302,7 +337,7 @@ export default function BOMProjectPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
-                <Button onClick={() => router.push('/')} variant="outline">
+                <Button onClick={() => openProjectManager()} variant="outline">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Projects
                 </Button>
@@ -328,7 +363,7 @@ export default function BOMProjectPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
-                <Button onClick={() => router.push('/')} variant="outline">
+                <Button onClick={() => openProjectManager()} variant="outline">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Projects
                 </Button>
@@ -346,7 +381,7 @@ export default function BOMProjectPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+            <Button variant="ghost" size="sm" onClick={() => openProjectManager()}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Projects
             </Button>
@@ -377,9 +412,9 @@ export default function BOMProjectPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Bill of Materials</CardTitle>
+                <CardTitle>BOM Package Management</CardTitle>
                 <CardDescription>
-                  Manage parts and components for this project
+                  Manage parts and components for this Package. Lists are separated by kitting locations.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -402,6 +437,18 @@ export default function BOMProjectPage() {
                             placeholder="e.g., PLC-001"
                           />
                         </div>
+
+                        {/* moved Manufacturer up to be right after Part Number */}
+                        <div>
+                          <Label htmlFor="manufacturer">Manufacturer *</Label>
+                          <Input
+                            id="manufacturer"
+                            value={newItem.manufacturer}
+                            onChange={(e) => setNewItem({ ...newItem, manufacturer: e.target.value })}
+                            placeholder="e.g., Siemens"
+                          />
+                        </div>
+
                         <div>
                           <Label htmlFor="quantity">Quantity *</Label>
                           <Input
@@ -412,6 +459,23 @@ export default function BOMProjectPage() {
                             placeholder="1"
                           />
                         </div>
+
+                        <div>
+                          <Label htmlFor="unit">Unit</Label>
+                          <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="EA">Each</SelectItem>
+                              <SelectItem value="SET">Set</SelectItem>
+                              <SelectItem value="M">Meter</SelectItem>
+                              <SelectItem value="FT">Foot</SelectItem>
+                              <SelectItem value="BOX">Box</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="col-span-2">
                           <Label htmlFor="description">Description *</Label>
                           <Input
@@ -421,22 +485,7 @@ export default function BOMProjectPage() {
                             placeholder="e.g., Programmable Logic Controller"
                           />
                         </div>
-                        <div>
-                          <Label htmlFor="unit">Unit</Label>
-                          <Select value={newItem.unit} onValueChange={(value) => setNewItem({ ...newItem, unit: value })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PCS">Pieces</SelectItem>
-                              <SelectItem value="SET">Set</SelectItem>
-                              <SelectItem value="M">Meter</SelectItem>
-                              <SelectItem value="KG">Kilogram</SelectItem>
-                              <SelectItem value="L">Liter</SelectItem>
-                              <SelectItem value="BOX">Box</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+
                         <div>
                           <Label htmlFor="category">Category</Label>
                           <Input
@@ -444,15 +493,6 @@ export default function BOMProjectPage() {
                             value={newItem.category}
                             onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
                             placeholder="e.g., Control Systems"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="manufacturer">Manufacturer</Label>
-                          <Input
-                            id="manufacturer"
-                            value={newItem.manufacturer}
-                            onChange={(e) => setNewItem({ ...newItem, manufacturer: e.target.value })}
-                            placeholder="e.g., Siemens"
                           />
                         </div>
                         <div>
@@ -610,6 +650,111 @@ export default function BOMProjectPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                {/* Filter Dialog */}
+                <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Filter BOM Items</DialogTitle>
+                      <DialogDescription>
+                        Apply filters to narrow down the BOM items displayed.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="filter-status">Status</Label>
+                          <Select 
+                            value={filters.status} 
+                            onValueChange={(value) => setFilters({ ...filters, status: value })}
+                          >
+                            <SelectTrigger id="filter-status">
+                              <SelectValue placeholder="All statuses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ALL">All Statuses</SelectItem>
+                              <SelectItem value="ACTIVE">Active</SelectItem>
+                              <SelectItem value="PENDING">Pending</SelectItem>
+                              <SelectItem value="OBSOLETE">Obsolete</SelectItem>
+                              <SelectItem value="DISCONTINUED">Discontinued</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="filter-spare">Spare Parts</Label>
+                          <Select 
+                            value={filters.isSpare} 
+                            onValueChange={(value) => setFilters({ ...filters, isSpare: value })}
+                          >
+                            <SelectTrigger id="filter-spare">
+                              <SelectValue placeholder="All items" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ALL">All Items</SelectItem>
+                              <SelectItem value="YES">Spare Parts Only</SelectItem>
+                              <SelectItem value="NO">Non-Spare Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="col-span-2">
+                          <Label htmlFor="filter-category">Category</Label>
+                          <Input
+                            id="filter-category"
+                            value={filters.category}
+                            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                            placeholder="e.g., Control Systems"
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <Label htmlFor="filter-manufacturer">Manufacturer</Label>
+                          <Input
+                            id="filter-manufacturer"
+                            value={filters.manufacturer}
+                            onChange={(e) => setFilters({ ...filters, manufacturer: e.target.value })}
+                            placeholder="e.g., Siemens"
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <Label htmlFor="filter-supplier">Supplier</Label>
+                          <Input
+                            id="filter-supplier"
+                            value={filters.supplier}
+                            onChange={(e) => setFilters({ ...filters, supplier: e.target.value })}
+                            placeholder="e.g., Automation Supply Co."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-4">
+                        <Button 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => {
+                            setFilters({
+                              status: 'ALL',
+                              category: '',
+                              manufacturer: '',
+                              supplier: '',
+                              isSpare: 'ALL'
+                            })
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                        <Button 
+                          className="flex-1"
+                          onClick={() => setIsFilterOpen(false)}
+                        >
+                          Apply Filters
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </CardHeader>
@@ -636,9 +781,30 @@ export default function BOMProjectPage() {
                     className="pl-10"
                   />
                 </div>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant={
+                    filters.status !== 'ALL' || 
+                    filters.category || 
+                    filters.manufacturer || 
+                    filters.supplier || 
+                    filters.isSpare !== 'ALL' 
+                      ? 'default' 
+                      : 'outline'
+                  } 
+                  size="sm" 
+                  onClick={() => setIsFilterOpen(true)}
+                >
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
+                  {(filters.status !== 'ALL' || 
+                    filters.category || 
+                    filters.manufacturer || 
+                    filters.supplier || 
+                    filters.isSpare !== 'ALL') && (
+                    <Badge variant="secondary" className="ml-2">
+                      Active
+                    </Badge>
+                  )}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => fetchBOMItems(currentProject.id, currentLocationId)}>
                   <RefreshCw className="w-4 h-4 mr-2" />

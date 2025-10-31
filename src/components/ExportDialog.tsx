@@ -36,7 +36,7 @@ const formatOptions: FormatOption[] = [
   {
     value: 'EPLAN',
     label: 'Eplan XML',
-    description: 'PLM-compatible XML format for Eplan integration',
+    description: 'PLM-compatible XML format for Eplan integration (.xml + .zw1)',
     fileExtension: '.xml'
   },
   {
@@ -83,8 +83,18 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
       // Trigger file download
       downloadFile(data.content, data.filename, data.contentType)
 
+      // For Eplan exports, also download the .zw1 file
+      if (data.zw1Content && data.zw1Filename) {
+        // Small delay to ensure both downloads trigger
+        setTimeout(() => {
+          downloadFile(data.zw1Content, data.zw1Filename, 'application/octet-stream')
+        }, 100)
+      }
+
       toast.success(`${selectedFormat} export successful`, {
-        description: `Downloaded ${data.filename}`
+        description: data.zw1Filename 
+          ? `Downloaded ${data.filename} and ${data.zw1Filename}`
+          : `Downloaded ${data.filename}`
       })
 
       onClose()
@@ -103,6 +113,15 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
 
     if (contentType.includes('spreadsheetml')) {
       // Excel file - content is base64 encoded
+      const byteCharacters = atob(content)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      blob = new Blob([byteArray], { type: contentType })
+    } else if (contentType === 'application/octet-stream') {
+      // Binary file (like .zw1) - content is base64 encoded
       const byteCharacters = atob(content)
       const byteNumbers = new Array(byteCharacters.length)
       for (let i = 0; i < byteCharacters.length; i++) {

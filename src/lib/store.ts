@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { DatabaseArchiveEntry } from '@/types/database'
+import type { AppSettings } from '@/types/settings'
+import { DEFAULT_SETTINGS, mergeWithDefaults } from '@/types/settings'
 
 export interface BOMItem {
   id: string
@@ -82,6 +84,10 @@ interface BOMStore {
   loading: boolean
   error: string | null
   
+  // Settings State
+  settings: AppSettings | null
+  settingsLoaded: boolean
+  
   // UI State
   searchTerm: string
   selectedItems: string[]
@@ -122,6 +128,11 @@ interface BOMStore {
   importDatabaseArchivePath: (archivePath: string) => Promise<DatabaseImportResult>
   uploadMasterParts: (file: File, clearExisting?: boolean) => Promise<MasterPartsImportResult>
   
+  // Settings Actions
+  fetchSettings: () => Promise<void>
+  updateSettings: (updates: Partial<AppSettings>) => Promise<void>
+  resetSettings: () => Promise<void>
+  
   // Excel-like Actions
   updateCell: (itemId: string, field: string, value: any) => void
   bulkUpdate: (itemIds: string[], updates: Partial<BOMItem>) => void
@@ -140,6 +151,8 @@ export const useBOMStore = create<BOMStore>()(
       bomItems: [],
       loading: false,
       error: null,
+      settings: null,
+      settingsLoaded: false,
       searchTerm: '',
       selectedItems: [],
       editingCell: null,
@@ -357,6 +370,13 @@ export const useBOMStore = create<BOMStore>()(
           const newItem = await response.json()
           set(state => ({ 
             bomItems: [...state.bomItems, newItem],
+            // Update project item count
+            projects: state.projects.map(p => 
+              p.id === projectId ? { ...p, itemCount: p.itemCount + 1 } : p
+            ),
+            currentProject: state.currentProject?.id === projectId 
+              ? { ...state.currentProject, itemCount: state.currentProject.itemCount + 1 }
+              : state.currentProject,
             loading: false 
           }))
         } catch (error) {
@@ -397,7 +417,12 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to delete BOM item')
           set(state => ({
             bomItems: state.bomItems.filter(item => item.id !== itemId),
-            selectedItems: state.selectedItems.filter(id => id !== itemId)
+            selectedItems: state.selectedItems.filter(id => id !== itemId),
+            // Update project item count
+            projects: state.projects.map(p => 
+              p.id === currentProject.id ? { ...p, itemCount: Math.max(0, p.itemCount - 1) } : p
+            ),
+            currentProject: { ...currentProject, itemCount: Math.max(0, currentProject.itemCount - 1) }
           }))
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error' })
@@ -430,6 +455,8 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to import BOM')
           const result = await response.json()
           await get().fetchBOMItems(projectId)
+          // Refresh projects to get updated item counts
+          await get().fetchProjects()
           set({ loading: false })
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
@@ -586,6 +613,108 @@ export const useBOMStore = create<BOMStore>()(
           const message = error instanceof Error ? error.message : 'Failed to upload master parts'
           set({ error: message })
           throw error
+        }
+      },
+
+      // Settings Actions
+      fetchSettings: async () => {
+        try {
+          // First, try to load from localStorage
+          const localSettings = localStorage.getItem('app-settings')
+          if (localSettings) {
+            try {
+              const parsed = JSON.parse(localSettings)
+              const merged = mergeWithDefaults(parsed)
+              set({ settings: merged, settingsLoaded: true })
+            } catch (e) {
+              console.error('Failed to parse localStorage settings:', e)
+            }
+          }
+
+          // Then fetch from server (will update if different)
+          const response = await fetch('/api/settings')
+          if (!response.ok) {
+            throw new Error('Failed to fetch settings from server')
+          }
+
+          const serverSettings = await response.json()
+          
+          // Update both state and localStorage
+          localStorage.setItem('app-settings', JSON.stringify(serverSettings))
+          set({ settings: serverSettings, settingsLoaded: true })
+        } catch (error) {
+          console.error('Error fetching settings:', error)
+          // Use defaults if both localStorage and server fail
+          const defaults = DEFAULT_SETTINGS
+          set({ settings: defaults, settingsLoaded: true })
+        }
+      },
+
+      updateSettings: async (updates: Partial<AppSettings>) => {
+        try {
+          const { settings } = get()
+          const currentSettings = settings || DEFAULT_SETTINGS
+
+          // Optimistically update UI
+          const updatedSettings = mergeWithDefaults({
+            ...currentSettings,
+            ...updates
+          })
+          
+          set({ settings: updatedSettings })
+          localStorage.setItem('app-settings', JSON.stringify(updatedSettings))
+
+          // Debounced server sync (500ms)
+          const syncToServer = async () => {
+            const response = await fetch('/api/settings', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updates)
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to save settings to server')
+            }
+
+            const savedSettings = await response.json()
+            set({ settings: savedSettings })
+            localStorage.setItem('app-settings', JSON.stringify(savedSettings))
+          }
+
+          // Use setTimeout for debouncing
+          if ((window as any)._settingsSyncTimeout) {
+            clearTimeout((window as any)._settingsSyncTimeout)
+          }
+          (window as any)._settingsSyncTimeout = setTimeout(syncToServer, 500)
+        } catch (error) {
+          console.error('Error updating settings:', error)
+          set({ error: error instanceof Error ? error.message : 'Failed to update settings' })
+        }
+      },
+
+      resetSettings: async () => {
+        try {
+          // Reset to defaults
+          const defaults = DEFAULT_SETTINGS
+          set({ settings: defaults })
+          localStorage.setItem('app-settings', JSON.stringify(defaults))
+
+          // Save to server
+          const response = await fetch('/api/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(defaults)
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to reset settings on server')
+          }
+
+          const savedSettings = await response.json()
+          set({ settings: savedSettings })
+        } catch (error) {
+          console.error('Error resetting settings:', error)
+          set({ error: error instanceof Error ? error.message : 'Failed to reset settings' })
         }
       },
 

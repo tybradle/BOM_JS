@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useBOMStore } from '@/lib/store'
 import Link from 'next/link'
 import { ArrowLeft, Plus, FolderOpen } from 'lucide-react'
+import { openProjectManager } from '@/lib/header-actions'
 
 export default function BOMRedirect() {
   const router = useRouter()
@@ -76,7 +77,7 @@ export default function BOMRedirect() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create First Project
                   </Button>
-                  <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
+                  <Button variant="outline" className="w-full" onClick={() => openProjectManager()}>
                     <FolderOpen className="w-4 h-4 mr-2" />
                     Go to Project Manager
                   </Button>
@@ -96,9 +97,9 @@ export default function BOMRedirect() {
                       >
                         {project.name || `${project.projectNumber} - ${project.packageName}`}
                       </Button>
-                    ))}
+                      ))}
                   </div>
-                  <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
+                  <Button variant="outline" className="w-full" onClick={() => openProjectManager()}>
                     <FolderOpen className="w-4 h-4 mr-2" />
                     Project Manager
                   </Button>

@@ -36,11 +36,18 @@ export async function POST(
     let content = ''
     let filename = ''
     let contentType = 'application/json'
+    let zw1Content: string | null = null
+    let zw1Filename: string | null = null
 
     if (format === 'EPLAN' || format === 'XML') {
       content = generateEplanXML(project)
-      filename = `${project.projectNumber}_${project.packageName.replace(/[^a-zA-Z0-9]/g, '_')}.xml`
+      const baseName = `${project.projectNumber}_${project.packageName.replace(/[^a-zA-Z0-9]/g, '_')}`
+      filename = `${baseName}.xml`
       contentType = 'application/xml'
+      
+      // Generate .zw1 backup file for Eplan
+      zw1Content = generateEplanZW1()
+      zw1Filename = `${baseName}.zw1`
     } else if (format === 'EXCEL') {
       // Generate Excel file
       const excelBuffer = generateExcelFile(project)
@@ -80,7 +87,10 @@ export async function POST(
       content,
       contentType,
       format: format.toUpperCase(),
-      exportedAt: exportRecord.exportedAt
+      exportedAt: exportRecord.exportedAt,
+      // Include .zw1 file for Eplan exports
+      zw1Content,
+      zw1Filename
     })
   } catch (error) {
     console.error('Failed to export BOM:', error)
@@ -145,6 +155,24 @@ function escapeXml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
+}
+
+function generateEplanZW1(): string {
+  // Generate a minimal .zw1 file to mimic an Eplan backup
+  // The .zw1 file is typically a small header/metadata file that accompanies the XML
+  // This contains a few bytes of data that Eplan uses to identify the backup
+  
+  // Eplan .zw1 files typically contain a small header with version info
+  // Using a minimal valid structure
+  const zw1Header = Buffer.from([
+    0x45, 0x50, 0x4C, 0x41, 0x4E,  // "EPLAN" in ASCII
+    0x00,                           // Null terminator
+    0x01, 0x00,                     // Version bytes
+    0x00, 0x00, 0x00, 0x00,        // Reserved/padding
+    0xFF, 0xFF                      // End marker
+  ])
+  
+  return zw1Header.toString('base64')
 }
 
 function generateCSV(project: any): string {

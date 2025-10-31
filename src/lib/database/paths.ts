@@ -2,9 +2,10 @@ import fs from 'fs'
 import path from 'path'
 
 const DB_FILENAME = 'custom.db'
-const DB_RELATIVE_DIR = 'db'
+const DB_RELATIVE_DIR = path.join('prisma', 'db')
 const BACKUP_DIR_NAME = 'backups'
 const ARCHIVE_GLOB_DIRS = [
+  path.join('prisma', 'db', 'backups'),
   path.join('db', 'backups'),
   path.join('Samples', 'Import Sample'),
 ]
@@ -80,7 +81,7 @@ export function getArchiveDirectories(): string[] {
   }
 
   if (archiveDirs.size === 0) {
-    archiveDirs.add(path.join(projectRoot, 'db'))
+    archiveDirs.add(path.join(projectRoot, 'prisma', 'db'))
   }
 
   return Array.from(archiveDirs)

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { SharedHeader } from "@/components/SharedHeader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,24 +16,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "ATS IA BOM Management Tool",
+  description: "CHD BOM Management Tool",
+  keywords: ["BOM", "Bill of Materials", "ATS", "Industrial Automation", "PLM", "Eplan"],
+  authors: [{ name: "ATS IA" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.ico",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "ATS IA BOM Management Tool",
+    description: "CHD BOM Management Tool",
+    url: "https://atsindustrialautomation.com/",
+    siteName: "ATS IA",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "ATS IA BOM Management Tool",
+    description: "CHD BOM Management Tool",
   },
 };
 
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        <SharedHeader />
         {children}
         <Toaster />
         <SonnerToaster />
