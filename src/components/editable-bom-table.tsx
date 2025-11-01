@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { 
   Edit, 
   Trash2, 
@@ -19,7 +29,8 @@ import {
   Search,
   Plus,
   FileDown,
-  FileUp
+  FileUp,
+  Loader2
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
 import { BOMItem } from '@/lib/store'
@@ -27,6 +38,7 @@ import { PartSearchDialog } from './PartSearchDialog'
 import { ExportDialog } from './ExportDialog'
 import { ImportPreviewDialog } from './ImportPreviewDialog'
 import { useToast } from '@/hooks/use-toast'
+import { debounce } from '@/lib/utils'
 
 interface EditableTableProps {
   items: BOMItem[]
@@ -56,12 +68,34 @@ export function EditableBOMTable({
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [sortConfig, setSortConfig] = useState<{ key: keyof BOMItem; direction: 'asc' | 'desc' } | null>(null)
+  const [userHasSorted, setUserHasSorted] = useState(false) // Track if user has manually sorted
   const [searchDialogOpen, setSearchDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false) // Track if save is pending
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false) // Confirmation dialog state
   const editInputRef = useRef<HTMLInputElement>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { toast } = useToast()
-  const { currentProject, currentLocationId, addBOMItem, fetchBOMItems } = useBOMStore()
+  const { currentProject, currentLocationId, addBOMItem, fetchBOMItems, settings } = useBOMStore()
+
+  // Apply default sort from settings on mount (only if user hasn't manually sorted)
+  useEffect(() => {
+    if (!userHasSorted && settings?.table && !sortConfig) {
+      const defaultColumn = settings.table.defaultSortColumn as keyof BOMItem
+      const defaultDirection = settings.table.defaultSortDirection
+      setSortConfig({ key: defaultColumn, direction: defaultDirection })
+    }
+  }, [settings, userHasSorted, sortConfig])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (editingCell && editInputRef.current) {
@@ -74,20 +108,55 @@ export function EditableBOMTable({
     setEditingCell({ itemId, field, value })
   }
 
-  const handleCellSave = () => {
+  // Immediate save function
+  const performSave = useCallback(() => {
     if (editingCell) {
       onItemUpdate(editingCell.itemId, editingCell.field, editingCell.value)
       setEditingCell(null)
+      setPendingSave(false)
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
     }
-  }
+  }, [editingCell, onItemUpdate])
+
+  // Debounced save based on settings
+  const handleCellSave = useCallback(() => {
+    if (!editingCell) return
+
+    const autoSaveDelay = settings?.table?.autoSaveDelay ?? 500
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    if (autoSaveDelay === 0) {
+      // Immediate save
+      performSave()
+    } else {
+      // Delayed save with indicator
+      setPendingSave(true)
+      saveTimeoutRef.current = setTimeout(() => {
+        performSave()
+      }, autoSaveDelay)
+    }
+  }, [editingCell, settings, performSave])
 
   const handleCellCancel = () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    setPendingSave(false)
     setEditingCell(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleCellSave()
+      // Force immediate save on Enter, bypassing delay
+      performSave()
     } else if (e.key === 'Escape') {
       handleCellCancel()
     }
@@ -99,6 +168,7 @@ export function EditableBOMTable({
       direction = 'desc'
     }
     setSortConfig({ key, direction })
+    setUserHasSorted(true) // Mark that user has manually sorted
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -118,9 +188,24 @@ export function EditableBOMTable({
   }
 
   const handleBulkDelete = () => {
+    if (selectedItems.length === 0) return
+    
+    const confirmBeforeDelete = settings?.table?.confirmBeforeDelete !== false
+    
+    if (confirmBeforeDelete) {
+      // Show confirmation dialog
+      setShowDeleteConfirm(true)
+    } else {
+      // Delete immediately
+      performDelete()
+    }
+  }
+
+  const performDelete = () => {
     if (selectedItems.length > 0) {
       onItemsDelete(selectedItems)
       setSelectedItems([])
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -218,28 +303,48 @@ export function EditableBOMTable({
 
       if (field === 'quantity' || field === 'unitPrice') {
         return (
-          <Input
-            ref={editInputRef}
-            type="number"
-            step={field === 'unitPrice' ? '0.01' : '1'}
-            value={editingCell.value}
-            onChange={(e) => setEditingCell({ ...editingCell, value: parseFloat(e.target.value) || 0 })}
-            onKeyDown={handleKeyDown}
-            onBlur={handleCellSave}
-            className="h-8"
-          />
+          <div className="relative">
+            <Input
+              ref={editInputRef}
+              type="number"
+              step={field === 'unitPrice' ? '0.01' : '1'}
+              value={editingCell.value}
+              onChange={(e) => {
+                setEditingCell({ ...editingCell, value: parseFloat(e.target.value) || 0 })
+                handleCellSave()
+              }}
+              onKeyDown={handleKeyDown}
+              onBlur={performSave}
+              className="h-8"
+            />
+            {pendingSave && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
         )
       }
 
       return (
-        <Input
-          ref={editInputRef}
-          value={editingCell.value}
-          onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
-          onKeyDown={handleKeyDown}
-          onBlur={handleCellSave}
-          className="h-8"
-        />
+        <div className="relative">
+          <Input
+            ref={editInputRef}
+            value={editingCell.value}
+            onChange={(e) => {
+              setEditingCell({ ...editingCell, value: e.target.value })
+              handleCellSave()
+            }}
+            onKeyDown={handleKeyDown}
+            onBlur={performSave}
+            className="h-8"
+          />
+          {pendingSave && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
       )
     }
 
@@ -353,6 +458,11 @@ export function EditableBOMTable({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
+              {settings?.table?.showRowNumbers && (
+                <TableHead className="w-16 text-center bg-muted/30">
+                  #
+                </TableHead>
+              )}
               <TableHead>
                 <Button
                   variant="ghost"
@@ -459,7 +569,7 @@ export function EditableBOMTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedItems.map((item) => (
+            {sortedItems.map((item, index) => (
               <TableRow key={item.id} className="group">
                 <TableCell>
                   <Checkbox
@@ -467,6 +577,11 @@ export function EditableBOMTable({
                     onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
                   />
                 </TableCell>
+                {settings?.table?.showRowNumbers && (
+                  <TableCell className="text-center bg-muted/10 text-muted-foreground font-mono text-sm">
+                    {index + 1}
+                  </TableCell>
+                )}
                 <TableCell className="font-medium">
                   {renderEditableCell(item, 'partNumber', item.partNumber)}
                 </TableCell>
@@ -572,6 +687,25 @@ export function EditableBOMTable({
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} from the BOM.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={performDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

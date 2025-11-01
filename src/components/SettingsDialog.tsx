@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useBOMStore } from '@/lib/store'
-import { Settings, Sun, Moon, Monitor, Type, Layout, Bell, Download, Upload, FileSpreadsheet, FileText, FileImage } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, Type, Layout, Bell, Download, Upload, FileSpreadsheet, FileText, FileImage, ArrowUpDown, ArrowUp, ArrowDown, Save, Trash2, Hash } from 'lucide-react'
+import { Slider } from '@/components/ui/slider'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface SettingsDialogProps {
   open?: boolean
@@ -503,15 +505,261 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange }: SettingsD
 
             <TabsContent value="table" className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Table Behavior</h3>
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Type className="w-5 h-5" />
+                  Table Behavior
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   Customize how tables behave and display data.
                 </p>
               </div>
-              <div className="text-center py-8 text-muted-foreground">
-                <Type className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Table settings coming soon...</p>
-              </div>
+              
+              {/* Default Sorting */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowUpDown className="w-5 h-5" />
+                    Default Sorting
+                  </CardTitle>
+                  <CardDescription>
+                    Set the default sort column and direction when opening a table.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Sort Column */}
+                    <div className="space-y-2">
+                      <Label htmlFor="sortColumn" className="font-medium">
+                        Sort Column
+                      </Label>
+                      <Select
+                        value={settings?.table?.defaultSortColumn || 'partNumber'}
+                        onValueChange={(value) => {
+                          const currentTable = settings?.table || {
+                            defaultSortColumn: 'partNumber',
+                            defaultSortDirection: 'asc',
+                            autoSaveDelay: 500,
+                            confirmBeforeDelete: true,
+                            showRowNumbers: false
+                          }
+                          updateSettings({
+                            table: {
+                              ...currentTable,
+                              defaultSortColumn: value
+                            }
+                          })
+                        }}
+                      >
+                        <SelectTrigger id="sortColumn">
+                          <SelectValue placeholder="Select column" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="partNumber">Part Number</SelectItem>
+                          <SelectItem value="description">Description</SelectItem>
+                          <SelectItem value="manufacturer">Manufacturer</SelectItem>
+                          <SelectItem value="category">Category</SelectItem>
+                          <SelectItem value="quantity">Quantity</SelectItem>
+                          <SelectItem value="unitPrice">Unit Price</SelectItem>
+                          <SelectItem value="status">Status</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Sort Direction */}
+                    <div className="space-y-2">
+                      <Label className="font-medium">
+                        Sort Direction
+                      </Label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={settings?.table?.defaultSortDirection === 'asc' ? 'default' : 'outline'}
+                          onClick={() => {
+                            const currentTable = settings?.table || {
+                              defaultSortColumn: 'partNumber',
+                              defaultSortDirection: 'asc',
+                              autoSaveDelay: 500,
+                              confirmBeforeDelete: true,
+                              showRowNumbers: false
+                            }
+                            updateSettings({
+                              table: {
+                                ...currentTable,
+                                defaultSortDirection: 'asc'
+                              }
+                            })
+                          }}
+                          className="flex-1 flex items-center gap-2 justify-center"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                          Ascending
+                        </Button>
+                        <Button
+                          variant={settings?.table?.defaultSortDirection === 'desc' ? 'default' : 'outline'}
+                          onClick={() => {
+                            const currentTable = settings?.table || {
+                              defaultSortColumn: 'partNumber',
+                              defaultSortDirection: 'asc',
+                              autoSaveDelay: 500,
+                              confirmBeforeDelete: true,
+                              showRowNumbers: false
+                            }
+                            updateSettings({
+                              table: {
+                                ...currentTable,
+                                defaultSortDirection: 'desc'
+                              }
+                            })
+                          }}
+                          className="flex-1 flex items-center gap-2 justify-center"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                          Descending
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Editing Behavior */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Save className="w-5 h-5" />
+                    Editing Behavior
+                  </CardTitle>
+                  <CardDescription>
+                    Control how cell edits are saved and how long to wait before auto-saving.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Auto-Save Delay */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="autoSaveDelay" className="font-medium">
+                        Auto-Save Delay
+                      </Label>
+                      <span className="text-sm text-muted-foreground">
+                        {settings?.table?.autoSaveDelay || 500}ms
+                      </span>
+                    </div>
+                    <Slider
+                      id="autoSaveDelay"
+                      min={0}
+                      max={2000}
+                      step={100}
+                      value={[settings?.table?.autoSaveDelay || 500]}
+                      onValueChange={(value) => {
+                        const currentTable = settings?.table || {
+                          defaultSortColumn: 'partNumber',
+                          defaultSortDirection: 'asc',
+                          autoSaveDelay: 500,
+                          confirmBeforeDelete: true,
+                          showRowNumbers: false
+                        }
+                        updateSettings({
+                          table: {
+                            ...currentTable,
+                            autoSaveDelay: value[0]
+                          }
+                        })
+                      }}
+                      className="w-full"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Delay in milliseconds before automatically saving cell changes. Set to 0 for immediate save.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delete Behavior */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="w-5 h-5" />
+                    Delete Behavior
+                  </CardTitle>
+                  <CardDescription>
+                    Control confirmation prompts before deleting items.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <Checkbox
+                      id="confirmDelete"
+                      checked={settings?.table?.confirmBeforeDelete !== false}
+                      onCheckedChange={(checked) => {
+                        const currentTable = settings?.table || {
+                          defaultSortColumn: 'partNumber',
+                          defaultSortDirection: 'asc',
+                          autoSaveDelay: 500,
+                          confirmBeforeDelete: true,
+                          showRowNumbers: false
+                        }
+                        updateSettings({
+                          table: {
+                            ...currentTable,
+                            confirmBeforeDelete: checked as boolean
+                          }
+                        })
+                      }}
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label htmlFor="confirmDelete" className="font-medium">
+                        Confirm before deleting items
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show a confirmation dialog before permanently deleting BOM items.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Display Options */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Hash className="w-5 h-5" />
+                    Display Options
+                  </CardTitle>
+                  <CardDescription>
+                    Customize what information is displayed in tables.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-start space-x-3 space-y-0">
+                    <Checkbox
+                      id="showRowNumbers"
+                      checked={settings?.table?.showRowNumbers || false}
+                      onCheckedChange={(checked) => {
+                        const currentTable = settings?.table || {
+                          defaultSortColumn: 'partNumber',
+                          defaultSortDirection: 'asc',
+                          autoSaveDelay: 500,
+                          confirmBeforeDelete: true,
+                          showRowNumbers: false
+                        }
+                        updateSettings({
+                          table: {
+                            ...currentTable,
+                            showRowNumbers: checked as boolean
+                          }
+                        })
+                      }}
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label htmlFor="showRowNumbers" className="font-medium">
+                        Show row numbers
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Display sequential row numbers in the first column of all tables.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="user" className="space-y-6">
