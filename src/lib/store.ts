@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware'
 import type { DatabaseArchiveEntry } from '@/types/database'
 import type { AppSettings } from '@/types/settings'
 import { DEFAULT_SETTINGS, mergeWithDefaults } from '@/types/settings'
+import { applyTheme, cleanupThemeListeners } from '@/lib/theme'
 
 export interface BOMItem {
   id: string
@@ -642,6 +643,11 @@ export const useBOMStore = create<BOMStore>()(
           // Update both state and localStorage
           localStorage.setItem('app-settings', JSON.stringify(serverSettings))
           set({ settings: serverSettings, settingsLoaded: true })
+          
+          // Apply theme immediately
+          if (serverSettings?.appearance) {
+            applyTheme(serverSettings.appearance.theme)
+          }
         } catch (error) {
           console.error('Error fetching settings:', error)
           // Use defaults if both localStorage and server fail
@@ -663,6 +669,11 @@ export const useBOMStore = create<BOMStore>()(
           
           set({ settings: updatedSettings })
           localStorage.setItem('app-settings', JSON.stringify(updatedSettings))
+          
+          // Apply theme immediately if appearance settings changed
+          if (updates.appearance?.theme) {
+            applyTheme(updatedSettings.appearance.theme)
+          }
 
           // Debounced server sync (500ms)
           const syncToServer = async () => {
@@ -698,6 +709,9 @@ export const useBOMStore = create<BOMStore>()(
           const defaults = DEFAULT_SETTINGS
           set({ settings: defaults })
           localStorage.setItem('app-settings', JSON.stringify(defaults))
+          
+          // Apply default theme
+          applyTheme(defaults.appearance.theme)
 
           // Save to server
           const response = await fetch('/api/settings', {

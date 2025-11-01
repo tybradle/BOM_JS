@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { SharedHeader } from "@/components/SharedHeader";
+import { initializeTheme } from "@/lib/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,42 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var settingsJson = localStorage.getItem('app-settings');
+                  if (settingsJson) {
+                    var settings = JSON.parse(settingsJson);
+                    if (settings && settings.appearance && settings.appearance.theme) {
+                      var theme = settings.appearance.theme;
+                      var html = document.documentElement;
+                      html.removeAttribute('data-theme');
+                      html.classList.remove('dark');
+                      
+                      if (theme === 'light') {
+                        html.setAttribute('data-theme', 'light');
+                      } else if (theme === 'dark') {
+                        html.setAttribute('data-theme', 'dark');
+                        html.classList.add('dark');
+                      } else if (theme === 'system') {
+                        html.setAttribute('data-theme', 'system');
+                        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                          html.classList.add('dark');
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('Failed to initialize theme:', e);
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,11 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { FileDown, Loader2 } from 'lucide-react'
+import { FileDown, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
+import { useBOMStore } from '@/lib/store'
 
 interface ExportDialogProps {
   open: boolean
@@ -54,8 +56,20 @@ const formatOptions: FormatOption[] = [
 ]
 
 export function ExportDialog({ open, onClose, projectId, projectNumber, packageName }: ExportDialogProps) {
+  const { settings } = useBOMStore()
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('EPLAN')
+  const [includeEmptyFields, setIncludeEmptyFields] = useState(false)
+  const [autoDownload, setAutoDownload] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+
+  // Initialize from settings when dialog opens
+  useEffect(() => {
+    if (open && settings) {
+      setSelectedFormat(settings.importExport?.export?.defaultFormat || 'EPLAN')
+      setIncludeEmptyFields(settings.importExport?.export?.includeEmptyFields || false)
+      setAutoDownload(settings.importExport?.export?.autoDownload ?? true)
+    }
+  }, [open, settings])
 
   const handleExport = async () => {
     if (!selectedFormat) {
@@ -71,7 +85,11 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ format: selectedFormat })
+        body: JSON.stringify({
+          format: selectedFormat,
+          includeEmptyFields,
+          autoDownload
+        })
       })
 
       if (!response.ok) {
@@ -80,22 +98,26 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
 
       const data = await response.json()
 
-      // Trigger file download
-      downloadFile(data.content, data.filename, data.contentType)
+      if (autoDownload) {
+        // Auto-download behavior (existing logic)
+        downloadFile(data.content, data.filename, data.contentType)
 
-      // For Eplan exports, also download the .zw1 file
-      if (data.zw1Content && data.zw1Filename) {
-        // Small delay to ensure both downloads trigger
-        setTimeout(() => {
-          downloadFile(data.zw1Content, data.zw1Filename, 'application/octet-stream')
-        }, 100)
+        // For Eplan exports, also download the .zw1 file
+        if (data.zw1Content && data.zw1Filename) {
+          setTimeout(() => {
+            downloadFile(data.zw1Content, data.zw1Filename, 'application/octet-stream')
+          }, 100)
+        }
+
+        toast.success(`${selectedFormat} export successful`, {
+          description: data.zw1Filename
+            ? `Downloaded ${data.filename} and ${data.zw1Filename}`
+            : `Downloaded ${data.filename}`
+        })
+      } else {
+        // Preview mode - show content instead of downloading
+        showExportPreview(data, selectedFormat)
       }
-
-      toast.success(`${selectedFormat} export successful`, {
-        description: data.zw1Filename 
-          ? `Downloaded ${data.filename} and ${data.zw1Filename}`
-          : `Downloaded ${data.filename}`
-      })
 
       onClose()
     } catch (error) {
@@ -144,6 +166,18 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
     window.URL.revokeObjectURL(url)
   }
 
+  const showExportPreview = (data: any, format: ExportFormat) => {
+    // For preview mode, we'll show a simple success message and the option to download
+    // In a more advanced implementation, this could show the actual content in a modal
+    toast.success(`${format} export ready`, {
+      description: 'Export completed. Click to download the file.',
+      action: {
+        label: 'Download',
+        onClick: () => downloadFile(data.content, data.filename, data.contentType)
+      }
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -157,7 +191,48 @@ export function ExportDialog({ open, onClose, projectId, projectNumber, packageN
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-4">
+          {/* Export Options */}
+          <div className="space-y-3 p-3 border rounded-md bg-muted/50">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Export Options
+            </h4>
+            
+            <div className="flex items-start space-x-3 space-y-0">
+              <Checkbox
+                id="includeEmptyFields"
+                checked={includeEmptyFields}
+                onCheckedChange={(checked) => setIncludeEmptyFields(checked as boolean)}
+              />
+              <div className="space-y-1 leading-none">
+                <Label htmlFor="includeEmptyFields" className="cursor-pointer font-medium">
+                  Include empty fields
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Include columns with empty or null values in the export
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3 space-y-0">
+              <Checkbox
+                id="autoDownload"
+                checked={autoDownload}
+                onCheckedChange={(checked) => setAutoDownload(checked as boolean)}
+              />
+              <div className="space-y-1 leading-none">
+                <Label htmlFor="autoDownload" className="cursor-pointer font-medium">
+                  Auto-download exported files
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically download files instead of showing preview
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Format Selection */}
           <RadioGroup value={selectedFormat} onValueChange={(value) => setSelectedFormat(value as ExportFormat)}>
             <div className="space-y-3">
               {formatOptions.map((option) => (

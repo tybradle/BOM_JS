@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Upload, FileUp, Loader2, CheckCircle2, XCircle, AlertCircle, Database } from 'lucide-react'
 import { toast } from 'sonner'
+import { useBOMStore } from '@/lib/store'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 
@@ -35,13 +36,14 @@ interface ParsedRow {
   isMissingFromDatabase?: boolean // Track if part doesn't exist in MasterPart database
 }
 
-export function ImportPreviewDialog({ 
-  open, 
-  onClose, 
-  projectId, 
+export function ImportPreviewDialog({
+  open,
+  onClose,
+  projectId,
   locationId,
   onImportComplete
 }: ImportPreviewDialogProps) {
+  const { settings } = useBOMStore()
   const [file, setFile] = useState<File | null>(null)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [isImporting, setIsImporting] = useState(false)
@@ -49,6 +51,13 @@ export function ImportPreviewDialog({
   const [missingFromDatabase, setMissingFromDatabase] = useState<Set<string>>(new Set())
   const [checkingDatabase, setCheckingDatabase] = useState(false)
   const [addMissingToDatabase, setAddMissingToDatabase] = useState(true)
+
+  // Initialize checkbox from settings when dialog opens
+  useEffect(() => {
+    if (open && settings) {
+      setAddMissingToDatabase(settings.importExport?.import?.addMissingPartsToDatabase ?? true)
+    }
+  }, [open, settings])
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     if (!selectedFile) return
@@ -287,7 +296,7 @@ export function ImportPreviewDialog({
     setParsedRows([])
     setMissingFromDatabase(new Set())
     setCheckingDatabase(false)
-    setAddMissingToDatabase(true)
+    setAddMissingToDatabase(settings?.importExport?.import?.addMissingPartsToDatabase ?? true)
     onClose()
   }
 

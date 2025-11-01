@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
 import { DatabaseToolsDialog } from '@/components/DatabaseToolsDialog'
+import { SettingsDialog } from '@/components/SettingsDialog'
 import Image from 'next/image'
 
 export function SharedHeader() {
@@ -319,7 +320,7 @@ export function SharedHeader() {
                 </Button>
               </DialogTrigger>
             </DatabaseToolsDialog>
-            <Button variant="ghost" size="sm">Settings</Button>
+            <SettingsDialog />
           </nav>
         </div>
       </div>
