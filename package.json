@@ -109,7 +109,7 @@
     },
     "publish": {
       "provider": "generic",
-      "url": "file://company-server/shared/bom-updates"
+      "url": "file:////atsna/ats/operations/cambridge/MECH%20DESIGN%20E%26C/CHD_tools/BOM_Suite"
     }
   },
   "dependencies": {
