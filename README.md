@@ -45,28 +45,91 @@ A comprehensive, locally-runnable framework for Bill of Materials (BOM) translat
 
 ### Prerequisites
 - Node.js 18+ installed
-- npm or yarn package manager
+- npm package manager (yarn not recommended due to specific scripts)
+- Git for version control
+- Windows, macOS, or Linux operating system
 
 ### Installation
 
-1. Clone the repository
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd BOM_JS
+   ```
+
 2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Set up the database:
+3. Create environment configuration:
    ```bash
+   # The .env file should already exist with basic configuration
+   # Verify it contains at minimum:
+   DATABASE_URL="file:./db/custom.db"
+   NODE_ENV="development"
+   ```
+
+4. Set up the database:
+   ```bash
+   # Push database schema to create initial database
    npm run db:push
+   
+   # Generate Prisma client for database access
    npm run db:generate
+   
+   # (Optional) Seed database with sample data
+   npx tsx scripts/seed-parts.ts
    ```
 
-4. Start the development server:
+5. Start the development server:
    ```bash
+   # Standard development mode
    npm run dev
+   
+   # Or clean development mode (kills any existing process on port 3002 first)
+   npm run dev:clean
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3002](http://localhost:3002) in your browser
+
+**Note**: The application runs on port 3002 by default (not 3000) to avoid conflicts with other applications.
+
+### Troubleshooting Setup Issues
+
+#### Port Already in Use
+If you get "Port 3002 is already in use" error:
+```bash
+# Kill any process using port 3002
+npm run kill-port
+
+# Then restart development server
+npm run dev
+```
+
+#### Database Issues
+If you encounter database-related errors:
+```bash
+# Reset database completely (WARNING: This deletes all data)
+npm run db:reset
+
+# Then regenerate and setup again
+npm run db:generate
+npm run db:push
+```
+
+#### Dependency Issues
+If you encounter dependency conflicts:
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and package-lock.json
+rm -rf node_modules package-lock.json
+
+# Reinstall dependencies
+npm install
+```
 
 ## Usage
 
@@ -150,30 +213,124 @@ A comprehensive, locally-runnable framework for Bill of Materials (BOM) translat
 ## Development
 
 ### Available Scripts
-- `npm run dev` - Start development server
+
+#### Core Development
+- `npm run dev` - Start development server on port 3002
+- `npm run dev:clean` - Kill port 3002 then start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
-- `npm run db:push` - Push schema changes
+
+#### Database Management
+- `npm run db:push` - Push schema changes to database
 - `npm run db:generate` - Generate Prisma client
 - `npm run db:migrate` - Run database migrations
-- `npm run db:reset` - Reset database
+- `npm run db:reset` - Reset database (WARNING: Deletes all data)
+- `npm run db:reimport` - Reimport database from archive
+
+#### Database Testing & Utilities
+- `npm run test-db-transfer` - Test database export/import functionality
+- `npm run test-db-archives` - Validate archive discovery and ordering
+
+#### Electron Desktop App
+- `npm run electron` - Run Electron app
+- `npm run electron-dev` - Run Electron with development server
+- `npm run electron-pack` - Build Electron package
+- `npm run electron-pack-win` - Build Windows package
+- `npm run electron-pack-mac` - Build macOS package
+- `npm run electron-pack-linux` - Build Linux package
+
+##### Port Management
+- `npm run kill-port [port]` - Kill process on specified port (defaults to 3002)
+
+### Development Server Details
+
+The application uses a custom server configuration (`server.ts`) that:
+- Runs on port 3002 by default (configurable via PORT environment variable)
+- Integrates Socket.IO for real-time functionality
+- Handles both Next.js requests and WebSocket connections
+- Includes graceful shutdown handling
+
+#### Custom Server Configuration
+- **Host**: 127.0.0.1 (localhost only)
+- **Default Port**: 3002 (customizable with `PORT` environment variable)
+- **Socket.IO Path**: `/api/socketio`
+- **Graceful Shutdown**: Handles SIGTERM, SIGINT, and Windows SIGBREAK signals
+
+### Development Workflow
+
+#### Setting Up for First Time
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set up database
+npm run db:push
+npm run db:generate
+
+# 3. (Optional) Seed with sample data
+npx tsx scripts/seed-parts.ts
+
+# 4. Start development server
+npm run dev
+```
+
+#### Making Database Changes
+```bash
+# 1. Modify schema.prisma
+
+# 2. Push changes to database
+npm run db:push
+
+# 3. Regenerate Prisma client
+npm run db:generate
+```
+
+#### Testing Database Functionality
+```bash
+# Test export/import round-trip
+npm run test-db-transfer
+
+# Test archive functionality
+npm run test-db-archives
+```
 
 ### Project Structure
 ```
-src/
-├── app/                 # Next.js app router
-│   ├── api/            # API routes
-│   ├── page.tsx        # Main dashboard
-│   └── layout.tsx      # Root layout
-├── components/         # React components
-│   ├── ui/            # shadcn/ui components
-│   └── editable-bom-table.tsx
-├── lib/               # Utilities and stores
-│   ├── db.ts          # Prisma client
-│   ├── store.ts       # Zustand store
-│   └── utils.ts       # Helper functions
-└── hooks/             # Custom React hooks
+├── prisma/              # Database schema and migrations
+│   └── schema.prisma    # Prisma database schema
+├── scripts/             # Utility and testing scripts
+│   ├── kill-port.js      # Port management utility
+│   ├── seed-parts.ts    # Database seeding script
+│   └── test-*.ts       # Various testing scripts
+├── src/
+│   ├── app/             # Next.js app router
+│   │   ├── api/        # API routes
+│   │   │   ├── database/    # Database management endpoints
+│   │   │   ├── projects/    # Project CRUD operations
+│   │   │   ├── import/      # Data import functionality
+│   │   │   └── settings/   # Application settings
+│   │   ├── bom/         # BOM management pages
+│   │   │   └── [projectId]/ # Dynamic project routes
+│   │   ├── page.tsx     # Landing page
+│   │   └── layout.tsx   # Root layout with theme handling
+│   ├── components/       # React components
+│   │   ├── ui/          # shadcn/ui base components
+│   │   ├── editable-bom-table.tsx    # Excel-like table component
+│   │   ├── ImportPreviewDialog.tsx    # Import preview functionality
+│   │   ├── ExportDialog.tsx           # Export functionality
+│   │   ├── DatabaseToolsDialog.tsx    # Database management UI
+│   │   └── SettingsDialog.tsx        # Application settings
+│   ├── lib/             # Utilities and stores
+│   │   ├── store.ts     # Zustand state management
+│   │   ├── db.ts        # Prisma client configuration
+│   │   ├── utils.ts     # Helper functions
+│   │   └── theme.ts     # Theme management
+│   ├── hooks/           # Custom React hooks
+│   └── types/           # TypeScript type definitions
+├── public/              # Static assets
+├── server.ts           # Custom Next.js server with Socket.IO
+└── db/                 # SQLite database files (created automatically)
 ```
 
 ## Configuration
