@@ -16,9 +16,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-  "db:reimport": "npx tsx scripts/reimport-database.ts",
-  "test-db-transfer": "tsx scripts/test-db-transfer.ts",
-  "test-db-archives": "tsx scripts/test-db-archives.ts",
+    "db:reimport": "npx tsx scripts/reimport-database.ts",
+    "test-db-transfer": "tsx scripts/test-db-transfer.ts",
+    "test-db-archives": "tsx scripts/test-db-archives.ts",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "npm run build && electron-builder",
@@ -26,7 +26,12 @@
     "electron-pack-mac": "npm run build && electron-builder --mac",
     "electron-pack-linux": "npm run build && electron-builder --linux",
     "dist": "npm run build && electron-builder --publish=never",
-    "dist-all": "npm run build && electron-builder -mwl --publish=never"
+    "dist-all": "npm run build && electron-builder -mwl --publish=never",
+    "deploy-network": "node scripts/deploy-network.js",
+    "deploy-update": "npm run electron-pack-win && npm run deploy-network",
+    "version-patch": "npm version patch && npm run deploy-update",
+    "version-minor": "npm version minor && npm run deploy-update",
+    "version-major": "npm version major && npm run deploy-update"
   },
   "build": {
     "appId": "com.company.bom-management-framework",
@@ -52,7 +57,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "public/icon.icns",
+      "icon": "public/icon.png",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -75,7 +80,7 @@
           ]
         }
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/icon.png"
     },
     "linux": {
       "target": [
@@ -103,9 +108,8 @@
       "shortcutName": "BOM Management Framework"
     },
     "publish": {
-      "provider": "github",
-      "owner": "your-username",
-      "repo": "bom-management-framework"
+      "provider": "generic",
+      "url": "file://company-server/shared/bom-updates"
     }
   },
   "dependencies": {
@@ -113,7 +117,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.1.1",
-    "@mdxeditor/editor": "^3.39.1",
     "@prisma/client": "^6.18.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -150,16 +153,18 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "csv-parse": "^6.1.0",
+    "csv-parse": "^5.6.0",
     "date-fns": "^4.1.0",
+    "electron-is-dev": "^2.0.0",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.6.2",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.23.2",
     "input-otp": "^1.4.2",
     "lru-cache": "^11.2.2",
     "lucide-react": "^0.525.0",
-    "next": "15.3.5",
-    "next-auth": "^4.24.11",
-    "next-intl": "^4.3.4",
+    "next": "15.5.6",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
     "react": "^19.0.0",
@@ -170,7 +175,6 @@
     "react-resizable-panels": "^3.0.3",
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^2.15.4",
-    "sax": "^1.4.1",
     "sharp": "^0.34.3",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
@@ -178,17 +182,16 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.20.3",
-    "uuid": "^11.1.0",
     "vaul": "^1.1.2",
-    "xlsx": "^0.18.5",
-    "z-ai-web-dev-sdk": "^0.0.10",
-    "zod": "^4.0.2",
+    "zod": "^3.23.8",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/adm-zip": "^0.5.5",
     "@types/node": "^20",
+    "@types/papaparse": "^5.3.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
@@ -197,9 +200,10 @@
     "electron-builder": "^26.0.12",
     "electron-icon-builder": "^2.0.1",
     "eslint": "^9",
-    "eslint-config-next": "15.3.5",
+    "eslint-config-next": "15.5.6",
     "nodemon": "^3.1.10",
     "prisma": "^6.18.0",
+    "sax": "^1.4.1",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5",
