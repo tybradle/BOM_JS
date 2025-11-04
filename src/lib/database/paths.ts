@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { getDatabasePath as getEnvDatabasePath, getUserDataDirectory } from '@/lib/env'
 
 const DB_FILENAME = 'custom.db'
 const DB_RELATIVE_DIR = path.join('prisma', 'db')
@@ -34,14 +35,28 @@ function resolveCandidatePaths(): string[] {
 }
 
 export function resolveDatabasePath(): string {
+  // Priority 1: Explicit environment override
+  if (databaseEnvOverride) {
+    return databaseEnvOverride
+  }
+  
+  // Priority 2: Use environment-aware path from env.ts
+  // This handles dev vs production automatically
+  const envPath = getEnvDatabasePath()
+  if (fs.existsSync(envPath)) {
+    return envPath
+  }
+  
+  // Priority 3: Try legacy candidate paths for backwards compatibility
   const candidates = resolveCandidatePaths()
   for (const candidate of candidates) {
     if (pathExists(candidate)) {
       return candidate
     }
   }
-  // Fall back to the first candidate even if it does not exist yet
-  return candidates[0] ?? path.join(process.cwd(), DB_RELATIVE_DIR, DB_FILENAME)
+  
+  // Fall back to environment-aware path (will be created on first use)
+  return envPath
 }
 
 export function resolveDatabaseDirectory(): string {
@@ -62,9 +77,18 @@ export function getDatabaseFilename(): string {
 }
 
 export function getArchiveDirectories(): string[] {
-  const projectRoot = process.cwd()
+  const isDevelopment = process.env.NODE_ENV !== 'production'
+  
+  // Use environment-aware user data directory
+  const userDataDir = getUserDataDirectory()
+  const baseCandidates = [userDataDir]
+  
+  // In development, also include project root
+  if (isDevelopment) {
+    baseCandidates.push(process.cwd())
+  }
+  
   const electronProcess = process as NodeJS.Process & { resourcesPath?: string; env?: NodeJS.ProcessEnv }
-  const baseCandidates = [projectRoot]
 
   if (typeof electronProcess.resourcesPath === 'string') {
     baseCandidates.push(electronProcess.resourcesPath)
@@ -81,7 +105,9 @@ export function getArchiveDirectories(): string[] {
   }
 
   if (archiveDirs.size === 0) {
-    archiveDirs.add(path.join(projectRoot, 'prisma', 'db'))
+    // Default to database directory + backups
+    const dbDir = resolveDatabaseDirectory()
+    archiveDirs.add(path.join(dbDir, BACKUP_DIR_NAME))
   }
 
   return Array.from(archiveDirs)

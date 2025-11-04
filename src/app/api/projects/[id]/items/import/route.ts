@@ -218,20 +218,46 @@ export async function POST(
       try {
         const partsArray = Array.from(partsToAddMap.values())
         
-        const batchResponse = await fetch(`http://localhost:3002/api/parts/batch-create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            parts: partsArray,
-            source: 'bom-import'
-          })
-        })
+        // Direct database insert - production-safe (no localhost HTTP calls)
+        let created = 0
+        let skipped = 0
+        const errors: string[] = []
         
-        if (batchResponse.ok) {
-          databaseAddResults = await batchResponse.json()
-          console.log(`Database update: ${databaseAddResults.created} created, ${databaseAddResults.skipped} skipped`)
-        } else {
-          console.warn('Database add failed, continuing with BOM import')
+        for (const part of partsArray) {
+          try {
+            const existing = await db.masterPart.findUnique({
+              where: { partNumber: part.partNumber }
+            })
+            
+            if (existing) {
+              skipped++
+            } else {
+              await db.masterPart.create({
+                data: {
+                  partNumber: part.partNumber,
+                  manufacturer: part.manufacturer || 'Unknown',
+                  description: part.description,
+                  secondaryDescription: part.secondaryDescription,
+                  category: part.category,
+                  unitPrice: part.unitPrice,
+                  currency: part.currency || 'USD',
+                  supplier: part.supplier,
+                  source: 'bom-import',
+                  importDate: new Date()
+                }
+              })
+              created++
+            }
+          } catch (partError) {
+            errors.push(`${part.partNumber}: ${partError instanceof Error ? partError.message : 'Unknown error'}`)
+          }
+        }
+        
+        databaseAddResults = { created, skipped, errors: errors.length }
+        console.log(`Database update: ${created} created, ${skipped} skipped, ${errors.length} errors`)
+        
+        if (errors.length > 0 && errors.length <= 5) {
+          console.log('Errors:', errors)
         }
       } catch (error) {
         console.error('Database add failed, continuing with BOM import:', error)
