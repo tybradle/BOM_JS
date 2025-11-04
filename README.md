@@ -64,11 +64,21 @@ A comprehensive, locally-runnable framework for Bill of Materials (BOM) translat
 
 3. Create environment configuration:
    ```bash
-   # The .env file should already exist with basic configuration
-   # Verify it contains at minimum:
+   # For DEVELOPMENT:
+   # Create .env file in project root with:
    DATABASE_URL="file:./db/custom.db"
    NODE_ENV="development"
+   
+   # For PRODUCTION (Electron packaging):
+   # The DATABASE_URL will be automatically handled by the app
+   # Database will be created at: %USERPROFILE%/BOM_SUITE/masterdb.db
+   # No .env file needed in production build
    ```
+   
+   **IMPORTANT - Production vs Development Paths**:
+   - **Development**: Database stored in project's `db/` folder (relative path)
+   - **Production**: Database stored in user's home directory for write access
+   - See [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md) for packaging instructions
 
 4. Set up the database:
    ```bash
