@@ -287,3 +287,29 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
 ipcMain.handle('get-app-path', (event, name) => {
   return app.getPath(name)
 })
+
+ipcMain.handle('write-file', async (event, filePath, data) => {
+  try {
+    // Convert data to Buffer if it's an ArrayBuffer or Uint8Array
+    let buffer
+    if (data instanceof ArrayBuffer) {
+      buffer = Buffer.from(data)
+    } else if (data instanceof Uint8Array) {
+      buffer = Buffer.from(data)
+    } else if (Buffer.isBuffer(data)) {
+      buffer = data
+    } else {
+      // Assume it's a string
+      buffer = Buffer.from(data)
+    }
+    
+    await fs.promises.writeFile(filePath, buffer)
+    return { success: true }
+  } catch (error) {
+    console.error('File write error:', error)
+    return { 
+      success: false, 
+      error: error.message || 'Failed to write file' 
+    }
+  }
+})

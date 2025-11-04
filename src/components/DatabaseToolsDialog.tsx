@@ -87,19 +87,57 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
     setIsExporting(true)
     try {
       const { blob, filename } = await downloadDatabaseArchive()
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      
+      // Check if running in Electron
+      const isElectron = typeof window !== 'undefined' && 
+                        window.electronAPI !== undefined
+      
+      if (isElectron && window.electronAPI) {
+        // Electron: Use native save dialog
+        const { filePath, canceled } = await window.electronAPI.showSaveDialog({
+          defaultPath: filename,
+          filters: [
+            { name: 'ZIP Archive', extensions: ['zip'] }
+          ]
+        })
+        
+        if (canceled || !filePath) {
+          toast({
+            title: 'Export cancelled',
+            description: 'Database export was cancelled.'
+          })
+          setIsExporting(false)
+          return
+        }
+        
+        // Write the blob to the selected file path using Electron's file system
+        const buffer = await blob.arrayBuffer()
+        const result = await window.electronAPI.writeFile(filePath, buffer)
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to write file')
+        }
+        
+        toast({
+          title: 'Database export ready',
+          description: `Archive saved to ${filePath}`
+        })
+      } else {
+        // Web browser: Use blob download
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = filename
+        document.body.appendChild(anchor)
+        anchor.click()
+        document.body.removeChild(anchor)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
 
-      toast({
-        title: 'Database export ready',
-        description: `Archive ${filename} downloaded. Store it in a safe location.`
-      })
+        toast({
+          title: 'Database export ready',
+          description: `Archive ${filename} downloaded. Store it in a safe location.`
+        })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to export database.'
       toast({
