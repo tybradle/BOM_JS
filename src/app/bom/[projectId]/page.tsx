@@ -32,7 +32,9 @@ import { EditableBOMTable } from '@/components/editable-bom-table'
 import { LocationTabs } from '@/components/LocationTabs'
 
 // Check if we're in Electron
-const isElectron = typeof window !== 'undefined' && window.process && window.process.type
+const isElectron = typeof window !== 'undefined' && 
+  (window as any).process && 
+  (window as any).process.type
 
 export default function BOMProjectPage() {
   const params = useParams()
@@ -118,7 +120,7 @@ export default function BOMProjectPage() {
 
   useEffect(() => {
     if (currentProject && currentProject.id === projectId) {
-      fetchBOMItems(currentProject.id, currentLocationId)
+      fetchBOMItems(currentProject.id, currentLocationId || undefined)
       fetchLocations(currentProject.id)
     }
   }, [currentProject, projectId, currentLocationId, fetchBOMItems, fetchLocations])
@@ -128,7 +130,9 @@ export default function BOMProjectPage() {
 
     await addBOMItem(currentProject.id, {
       ...newItem,
-      locationId: currentLocationId
+      locationId: currentLocationId,
+      status: 'ACTIVE' as const,
+      isSpare: false
     })
 
     setNewItem({
@@ -215,6 +219,13 @@ export default function BOMProjectPage() {
     await deleteLocation(locationId)
   }
 
+  const { updateLocation } = useBOMStore()
+
+  const handleLocationUpdate = async (locationId: string, name: string, exportName?: string | null) => {
+    if (!currentProject) return
+    await updateLocation(locationId, name, exportName)
+  }
+
   const handleRefreshData = async () => {
     if (!currentProject) return
     
@@ -224,7 +235,7 @@ export default function BOMProjectPage() {
     })
     
     try {
-      await fetchBOMItems(currentProject.id, currentLocationId)
+      await fetchBOMItems(currentProject.id, currentLocationId || undefined)
       await fetchLocations(currentProject.id)
       
       toast({
@@ -767,6 +778,7 @@ export default function BOMProjectPage() {
                 onLocationSelect={setCurrentLocation}
                 onLocationAdd={handleLocationAdd}
                 onLocationDelete={handleLocationDelete}
+                onLocationUpdate={handleLocationUpdate}
                 loading={loading}
               />
 
@@ -806,7 +818,7 @@ export default function BOMProjectPage() {
                     </Badge>
                   )}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => fetchBOMItems(currentProject.id, currentLocationId)}>
+                <Button variant="outline" size="sm" onClick={() => fetchBOMItems(currentProject.id, currentLocationId || undefined)}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </Button>

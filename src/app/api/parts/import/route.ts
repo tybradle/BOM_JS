@@ -5,6 +5,7 @@ import path from 'path'
 import { db } from '@/lib/db'
 import { clearSearchCache } from '@/lib/search-cache'
 import { parsePartsCSV, parsePartsExcel } from '@/lib/csv-parser'
+import { getUploadDirectory } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest) {
       console.log(`Format: ${fileExtension}`)
       console.log(`Clear existing: ${clearExisting}`)
       
-      // Save uploaded file to temp directory
-      const uploadDir = path.join(process.cwd(), 'temp', 'uploads')
+      // Save uploaded file to temp directory (production-safe)
+      const uploadDir = getUploadDirectory()
       if (!existsSync(uploadDir)) {
         await mkdir(uploadDir, { recursive: true })
       }

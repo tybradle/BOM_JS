@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   getAppPath: (name) => ipcRenderer.invoke('get-app-path', name),
   
+  // File operations
+  writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
+  
   // Menu events
   onMenuAction: (callback) => {
     ipcRenderer.on('menu-new-project', callback)

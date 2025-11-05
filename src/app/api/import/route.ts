@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
             supplier: item.supplier,
             category: item.category,
             projectId,
+            locationId: item.locationId,
             status: 'ACTIVE',
             order: startOrder + index
           }

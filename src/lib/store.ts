@@ -64,6 +64,13 @@ export interface MasterPartsImportResult {
   }
 }
 
+export interface DatabaseExportProgress {
+  stage: 'validating' | 'reading' | 'compressing' | 'finalizing' | 'completed' | 'error'
+  progress: number // 0-100
+  message: string
+  details?: string
+}
+
 interface Location {
   id: string
   name: string
@@ -94,6 +101,9 @@ interface BOMStore {
   selectedItems: string[]
   editingCell: { itemId: string; field: string } | null
   
+  // Export Progress State
+  exportProgress: DatabaseExportProgress | null
+  
   // Setters
   setProjects: (projects: BOMProject[]) => void
   setCurrentProject: (project: BOMProject | null) => void
@@ -106,6 +116,7 @@ interface BOMStore {
   setSearchTerm: (term: string) => void
   setSelectedItems: (items: string[]) => void
   setEditingCell: (cell: { itemId: string; field: string } | null) => void
+  setExportProgress: (progress: DatabaseExportProgress | null) => void
   
   // API Actions
   fetchProjects: () => Promise<void>
@@ -123,10 +134,16 @@ interface BOMStore {
   exportBOM: (projectId: string, format: 'XML' | 'JSON' | 'CSV') => Promise<{ content: string; filename: string }>
   importBOM: (projectId: string, items: any[], format: string) => Promise<void>
   downloadDatabaseArchive: () => Promise<{ blob: Blob; filename: string }>
+  downloadDatabaseArchiveWithProgress: (onProgress?: (progress: DatabaseExportProgress) => void) => Promise<{ blob: Blob; filename: string }>
   uploadDatabaseArchive: (file: File) => Promise<DatabaseImportResult>
+  
+  // Database archive management
   launchPrismaStudio: () => Promise<{ url: string }>
   fetchDatabaseArchives: () => Promise<DatabaseArchiveEntry[]>
   importDatabaseArchivePath: (archivePath: string) => Promise<DatabaseImportResult>
+  createDatabaseArchive: (description: string) => Promise<{ success: boolean; filename: string; path: string; size: number; description: string; createdAt: string }>
+  deleteDatabaseArchive: (archivePath: string) => Promise<{ success: boolean; message: string; deletedPath: string }>
+  restoreDatabaseArchive: (archivePath: string, createBackup?: boolean) => Promise<{ success: boolean; message: string; backupPath?: string; restoredFrom: string }>
   uploadMasterParts: (file: File, clearExisting?: boolean) => Promise<MasterPartsImportResult>
   
   // Settings Actions
@@ -152,11 +169,12 @@ export const useBOMStore = create<BOMStore>()(
       bomItems: [],
       loading: false,
       error: null,
-      settings: null,
-      settingsLoaded: false,
-      searchTerm: '',
-      selectedItems: [],
-      editingCell: null,
+       settings: null,
+       settingsLoaded: false,
+       searchTerm: '',
+       selectedItems: [],
+       editingCell: null,
+       exportProgress: null,
       
       // Setters
       setProjects: (projects) => set({ projects }),
@@ -164,10 +182,11 @@ export const useBOMStore = create<BOMStore>()(
       setLocations: (locations) => set({ locations }),
       setCurrentLocationId: (locationId) => set({ currentLocationId: locationId }),
   setCurrentLocation: (locationId) => set({ currentLocationId: locationId }),
-      setBOMItems: (items) => set({ bomItems: items }),
-      setLoading: (loading) => set({ loading }),
-      setError: (error) => set({ error }),
-      setSearchTerm: (term) => set({ searchTerm: term }),
+       setBOMItems: (items) => set({ bomItems: items }),
+       setLoading: (loading) => set({ loading }),
+       setError: (error) => set({ error }),
+       setSearchTerm: (term) => set({ searchTerm: term }),
+       setExportProgress: (progress) => set({ exportProgress: progress }),
       setSelectedItems: (items) => set({ selectedItems: items }),
       setEditingCell: (cell) => set({ editingCell: cell }),
       
@@ -494,6 +513,81 @@ export const useBOMStore = create<BOMStore>()(
         }
       },
 
+      downloadDatabaseArchiveWithProgress: async (onProgress?: (progress: DatabaseExportProgress) => void) => {
+        try {
+          const response = await fetch('/api/database/export/progress', {
+            method: 'GET'
+          })
+
+          if (!response.ok) {
+            let message = 'Failed to export database'
+            try {
+              const data = await response.json()
+              message = data?.error ?? message
+            } catch {
+              // Ignore JSON parsing errors
+            }
+            throw new Error(message)
+          }
+
+          const reader = response.body?.getReader()
+          const decoder = new TextDecoder()
+
+          if (!reader) {
+            throw new Error('No response body reader available')
+          }
+
+          let blob: Blob | null = null
+          let filename: string = 'bom-database-backup.zip'
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              
+              if (done) break
+
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6))
+                    
+                    if (data.type === 'download') {
+                      // Convert base64 back to blob
+                      const binaryString = atob(data.data)
+                      const bytes = new Uint8Array(binaryString.length)
+                      for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i)
+                      }
+                      blob = new Blob([bytes], { type: 'application/zip' })
+                      filename = data.filename
+                    } else if (onProgress) {
+                      onProgress(data as DatabaseExportProgress)
+                    }
+                  } catch (parseError) {
+                    console.warn('Failed to parse SSE data:', parseError)
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock()
+          }
+
+          if (!blob) {
+            throw new Error('No download data received')
+          }
+
+          return { blob, filename }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to export database'
+          set({ error: message })
+          throw error
+        }
+      },
+
       uploadDatabaseArchive: async (file) => {
         try {
           const formData = new FormData()
@@ -581,6 +675,73 @@ export const useBOMStore = create<BOMStore>()(
           return data as DatabaseImportResult
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to import database archive'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      createDatabaseArchive: async (description) => {
+        try {
+          const response = await fetch('/api/database/create-archive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description })
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to create database archive'
+            throw new Error(message)
+          }
+
+          return data as { success: boolean; filename: string; path: string; size: number; description: string; createdAt: string }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to create database archive'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      deleteDatabaseArchive: async (archivePath) => {
+        try {
+          const response = await fetch(`/api/database/delete-archive?path=${encodeURIComponent(archivePath)}`, {
+            method: 'DELETE'
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to delete database archive'
+            throw new Error(message)
+          }
+
+          return data as { success: boolean; message: string; deletedPath: string }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to delete database archive'
+          set({ error: message })
+          throw error
+        }
+      },
+
+      restoreDatabaseArchive: async (archivePath, createBackup = true) => {
+        try {
+          const response = await fetch('/api/database/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ archivePath, createBackup })
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            const message = data?.error ?? 'Failed to restore database archive'
+            throw new Error(message)
+          }
+
+          return data as { success: boolean; message: string; backupPath?: string; restoredFrom: string }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to restore database archive'
           set({ error: message })
           throw error
         }

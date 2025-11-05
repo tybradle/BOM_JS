@@ -1,8 +1,42 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron')
 const path = require('path')
-const isDev = require('electron-is-dev')
 const fs = require('fs')
 const { spawn } = require('child_process')
+
+// Setup logging to file
+const logDir = path.join(app.getPath('userData'), 'logs')
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true })
+}
+const logFile = path.join(logDir, 'electron.log')
+const logStream = fs.createWriteStream(logFile, { flags: 'a' })
+
+// Override console.log to write to both console and file
+const originalConsoleLog = console.log
+const originalConsoleError = console.error
+console.log = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+  const timestamp = new Date().toISOString()
+  logStream.write(`[${timestamp}] LOG: ${message}\n`)
+  originalConsoleLog.apply(console, args)
+}
+console.error = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+  const timestamp = new Date().toISOString()
+  logStream.write(`[${timestamp}] ERROR: ${message}\n`)
+  originalConsoleError.apply(console, args)
+}
+
+console.log('=== ELECTRON STARTING ===')
+console.log('Log file:', logFile)
+
+// Disable hardware acceleration to prevent GPU crashes
+app.disableHardwareAcceleration()
+
+// More robust development detection
+const isExplicitDev = process.env.NODE_ENV === 'development'
+const hasDevServer = fs.existsSync(path.join(__dirname, '../src'))
+const isDev = isExplicitDev || (process.env.NODE_ENV !== 'production' && hasDevServer)
 
 // Keep a global reference of the window object
 let mainWindow
@@ -10,6 +44,7 @@ let splashScreen
 let serverProcess
 
 function createSplashScreen() {
+  console.log('Creating splash screen...')
   splashScreen = new BrowserWindow({
     width: 400,
     height: 300,
@@ -28,6 +63,7 @@ function createSplashScreen() {
 
   splashScreen.loadFile(path.join(__dirname, 'splash.html'))
   splashScreen.once('ready-to-show', () => {
+    console.log('Splash screen ready, showing...')
     splashScreen.show()
   })
 
@@ -36,22 +72,93 @@ function createSplashScreen() {
 
 function startServer() {
   return new Promise((resolve, reject) => {
+    console.log('startServer called, isDev:', isDev)
+    
     if (isDev) {
-      resolve('http://localhost:3000')
+      console.log('Development mode detected, resolving to localhost:3002')
+      resolve('http://localhost:3002')
       return
     }
 
-    // Start the Next.js server in production
-    const serverPath = path.join(__dirname, '../server.js')
-    serverProcess = spawn('node', [serverPath], {
-      cwd: path.join(__dirname, '..'),
-      stdio: 'pipe'
+    // Production mode: use standalone server
+    // In packaged app: resources/app/.next/standalone/server.js
+    // __dirname in packaged app points to resources/app/public
+    // In electron-local mode: __dirname is public/, but .next is in parent (project root)
+    const isPackaged = !isDev && __dirname.includes('resources')
+    const basePath = isPackaged ? path.join(__dirname, '..') : path.join(__dirname, '..')
+    const standaloneServerPath = path.join(basePath, '.next/standalone/server.js')
+    const standaloneCwd = path.join(basePath, '.next/standalone')
+    
+    console.log('Checking for standalone server at:', standaloneServerPath)
+    if (!fs.existsSync(standaloneServerPath)) {
+      const errorMsg = `Standalone server not found at: ${standaloneServerPath}\n__dirname: ${__dirname}\nbasePath: ${basePath}`
+      console.error(errorMsg)
+      reject(new Error(errorMsg))
+      return
+    }
+
+    console.log('Starting standalone Next.js server...')
+    
+    // Next.js standalone requires .next/static and public folders to be accessible
+    // Copy them to the standalone directory if they don't exist
+    const staticSource = path.join(basePath, '.next/static')
+    const staticDest = path.join(standaloneCwd, '.next/static')
+    const publicSource = path.join(basePath, 'public')
+    const publicDest = path.join(standaloneCwd, 'public')
+    
+    // Create .next directory in standalone if needed
+    const standaloneNextDir = path.join(standaloneCwd, '.next')
+    if (!fs.existsSync(standaloneNextDir)) {
+      fs.mkdirSync(standaloneNextDir, { recursive: true })
+    }
+    
+    // Only copy static/public folders if they don't exist (first run optimization)
+    // This prevents unnecessary I/O on every app launch
+    if (fs.existsSync(staticSource) && !fs.existsSync(staticDest)) {
+      console.log('First run: Copying static folder to standalone...')
+      fs.cpSync(staticSource, staticDest, { recursive: true })
+      console.log('Static folder copied successfully')
+    } else if (fs.existsSync(staticDest)) {
+      console.log('Static folder already exists, skipping copy')
+    }
+    
+    if (fs.existsSync(publicSource) && !fs.existsSync(publicDest)) {
+      console.log('First run: Copying public folder to standalone...')
+      fs.cpSync(publicSource, publicDest, { recursive: true })
+      console.log('Public folder copied successfully')
+    } else if (fs.existsSync(publicDest)) {
+      console.log('Public folder already exists, skipping copy')
+    }
+    
+    // Use process.execPath to get Electron's Node.js in production
+    const nodePath = process.execPath
+    console.log('Using Node.js from:', nodePath)
+    console.log('Server script:', standaloneServerPath)
+    console.log('Working directory:', standaloneCwd)
+    
+    serverProcess = spawn(nodePath, [standaloneServerPath], {
+      cwd: standaloneCwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        PORT: '3002',
+        ELECTRON_RUN_AS_NODE: '1'
+      }
+    })
+
+    serverProcess.on('error', (err) => {
+      console.error('Failed to start server process:', err)
+      reject(err)
     })
 
     serverProcess.stdout.on('data', (data) => {
       console.log(`Server stdout: ${data}`)
-      if (data.toString().includes('Ready on http')) {
-        resolve('http://localhost:3000')
+      // Next.js 15 outputs "✓ Ready in XXXms" instead of "Ready on http"
+      if (data.toString().includes('Ready in') || data.toString().includes('Ready on http')) {
+        console.log('Server ready signal detected')
+        resolve('http://localhost:3002')
       }
     })
 
@@ -66,14 +173,16 @@ function startServer() {
       }
     })
 
-    // Give the server time to start
+    // Give server time to start
     setTimeout(() => {
-      resolve('http://localhost:3000')
-    }, 5000)
+      resolve('http://localhost:3002')
+    }, 10000)
   })
 }
 
 async function createWindow() {
+  console.log('Creating main window...')
+  
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -92,26 +201,67 @@ async function createWindow() {
   })
 
   try {
+    console.log('Starting server...')
     const serverUrl = await startServer()
+    console.log('Server URL:', serverUrl)
     
     // Load the app
-    mainWindow.loadURL(serverUrl)
+    console.log('Loading URL:', serverUrl)
+    await mainWindow.loadURL(serverUrl)
+    console.log('URL loaded successfully')
+    
+    // Log page loading events
+    mainWindow.webContents.on('did-start-loading', () => {
+      console.log('Page started loading')
+    })
+    
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log('Page finished loading')
+    })
+    
+    mainWindow.webContents.on('dom-ready', () => {
+      console.log('DOM ready')
+    })
 
     // Show window when ready to prevent visual flash
+    let windowShown = false
+    const showMainWindow = () => {
+      if (windowShown) return
+      windowShown = true
+      
+      console.log('Closing splash screen and showing main window')
+      if (splashScreen) {
+        splashScreen.close()
+        splashScreen = null
+      }
+      mainWindow.show()
+      mainWindow.focus()
+      
+      if (isDev) {
+        mainWindow.webContents.openDevTools()
+      }
+    }
+    
     mainWindow.once('ready-to-show', () => {
-      setTimeout(() => {
-        if (splashScreen) {
-          splashScreen.close()
-          splashScreen = null
-        }
-        mainWindow.show()
-        mainWindow.focus()
-        
-        if (isDev) {
-          mainWindow.webContents.openDevTools()
-        }
-      }, 2000) // 2 second splash screen
+      console.log('Window ready-to-show event fired')
+      setTimeout(showMainWindow, 500)
     })
+    
+    // Fallback: show window after 5 seconds even if ready-to-show doesn't fire
+    setTimeout(() => {
+      if (!windowShown) {
+        console.log('Fallback: Forcing window to show after timeout')
+        showMainWindow()
+      }
+    }, 5000)
+
+    // Add error handling for page load failures
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('Failed to load page:', errorCode, errorDescription)
+      // Show window anyway so user can see the error
+      setTimeout(showMainWindow, 1000)
+    })
+
   } catch (error) {
     console.error('Failed to start server:', error)
     if (splashScreen) {
@@ -242,7 +392,12 @@ function createMenu() {
 
 // App event handlers
 app.whenReady().then(() => {
+  console.log('=== APP READY ===')
+  console.log('isDev:', isDev)
+  console.log('__dirname:', __dirname)
+  
   createSplashScreen()
+  console.log('Waiting 1 second before creating main window...')
   setTimeout(createWindow, 1000)
 
   app.on('activate', () => {
@@ -286,4 +441,30 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
 
 ipcMain.handle('get-app-path', (event, name) => {
   return app.getPath(name)
+})
+
+ipcMain.handle('write-file', async (event, filePath, data) => {
+  try {
+    // Convert data to Buffer if it's an ArrayBuffer or Uint8Array
+    let buffer
+    if (data instanceof ArrayBuffer) {
+      buffer = Buffer.from(data)
+    } else if (data instanceof Uint8Array) {
+      buffer = Buffer.from(data)
+    } else if (Buffer.isBuffer(data)) {
+      buffer = data
+    } else {
+      // Assume it's a string
+      buffer = Buffer.from(data)
+    }
+    
+    await fs.promises.writeFile(filePath, buffer)
+    return { success: true }
+  } catch (error) {
+    console.error('File write error:', error)
+    return { 
+      success: false, 
+      error: error.message || 'Failed to write file' 
+    }
+  }
 })

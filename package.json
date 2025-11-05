@@ -2,7 +2,9 @@
   "name": "bom-management-framework",
   "version": "1.0.0",
   "description": "A comprehensive tool for Bill of Materials translation and management",
+  "author": "Tyler Bradley",
   "main": "public/electron.js",
+  "main-local": "public/electron-local.js",
   "homepage": "./",
   "private": true,
   "scripts": {
@@ -16,38 +18,53 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-  "db:reimport": "npx tsx scripts/reimport-database.ts",
-  "test-db-transfer": "tsx scripts/test-db-transfer.ts",
-  "test-db-archives": "tsx scripts/test-db-archives.ts",
+    "db:reimport": "npx tsx scripts/reimport-database.ts",
+    "test-db-transfer": "tsx scripts/test-db-transfer.ts",
+    "test-db-archives": "tsx scripts/test-db-archives.ts",
+    "test-local": "node scripts/test-local.js",
     "electron": "electron .",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3002 && electron .\"",
+    "electron-local": "npm run build && cross-env NODE_ENV=production electron .",
     "electron-pack": "npm run build && electron-builder",
     "electron-pack-win": "npm run build && electron-builder --win",
+    "test-standalone": "npm run build && node .next/standalone/server.js",
     "electron-pack-mac": "npm run build && electron-builder --mac",
     "electron-pack-linux": "npm run build && electron-builder --linux",
     "dist": "npm run build && electron-builder --publish=never",
     "dist-all": "npm run build && electron-builder -mwl --publish=never"
   },
   "build": {
-    "appId": "com.company.bom-management-framework",
+    "appId": "com.ats.bom-management-framework",
     "productName": "BOM Management Framework",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "public"
     },
     "files": [
-      ".next/**/*",
-      "node_modules/**/*",
+      ".next/standalone/**/*",
+      ".next/static/**/*",
       "public/electron.js",
       "public/preload.js",
       "public/splash.html",
+      "public/*.png",
+      "public/*.ico",
+      "public/*.svg",
       "db/**/*",
-      "prisma/**/*",
-      "server.ts"
+      "prisma/schema.prisma",
+      "!node_modules/**/*"
     ],
+    "asar": false,
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false,
+    "forceCodeSigning": false,
     "extraResources": [
       {
-        "from": "db",
-        "to": "db"
+        "from": ".next/static",
+        "to": ".next/static"
+      },
+      {
+        "from": "public",
+        "to": "public"
       }
     ],
     "mac": {
@@ -63,19 +80,19 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BOM Management Framework"
     },
     "linux": {
       "target": [
@@ -95,13 +112,6 @@
       "icon": "public/icon.png",
       "category": "Office"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "BOM Management Framework"
-    },
     "publish": {
       "provider": "github",
       "owner": "your-username",
@@ -109,11 +119,6 @@
     }
   },
   "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@hookform/resolvers": "^5.1.1",
-    "@mdxeditor/editor": "^3.39.1",
     "@prisma/client": "^6.18.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -142,34 +147,28 @@
     "@radix-ui/react-toggle": "^1.1.9",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
-    "@reactuses/core": "^6.0.5",
-    "@tanstack/react-query": "^5.82.0",
-    "@tanstack/react-table": "^8.21.3",
     "adm-zip": "^0.5.16",
-    "axios": "^1.10.0",
+    "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "csv-parse": "^6.1.0",
     "date-fns": "^4.1.0",
+    "electron-is-dev": "^3.0.1",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.2",
     "input-otp": "^1.4.2",
     "lru-cache": "^11.2.2",
     "lucide-react": "^0.525.0",
-    "next": "15.3.5",
-    "next-auth": "^4.24.11",
-    "next-intl": "^4.3.4",
+    "next": "^15.5.6",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
     "react": "^19.0.0",
-    "react-day-picker": "^9.8.0",
+    "react-day-picker": "^9.11.1",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.60.0",
-    "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^3.0.3",
-    "react-syntax-highlighter": "^15.6.1",
-    "recharts": "^2.15.4",
+    "react-resizable-panels": "^3.0.6",
+    "recharts": "^3.3.0",
     "sax": "^1.4.1",
     "sharp": "^0.34.3",
     "socket.io": "^4.8.1",
@@ -181,7 +180,6 @@
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
     "xlsx": "^0.18.5",
-    "z-ai-web-dev-sdk": "^0.0.10",
     "zod": "^4.0.2",
     "zustand": "^5.0.6"
   },
