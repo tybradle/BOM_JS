@@ -2,6 +2,25 @@
 
 A comprehensive, locally-runnable framework for Bill of Materials (BOM) translation and management. This framework is designed to help designers build BOMs outside of the Eplan design cycle and generate XML outputs compatible with PLM systems.
 
+## 🚀 Quick Start
+
+```bash
+# 1. Install and setup
+npm install
+npm run db:push
+
+# 2. Choose your testing method:
+npm run dev              # Web browser (fastest)
+npm run electron-dev       # Desktop with hot reload  
+npm run electron-local     # Desktop production build
+npm run test-local         # Check setup
+
+# 3. For distribution:
+npm run electron-pack
+```
+
+**Key Difference**: `electron-dev` wraps localhost, `electron-local` tests true desktop app.
+
 ## Features
 
 ### Core Functionality
@@ -101,7 +120,25 @@ A comprehensive, locally-runnable framework for Bill of Materials (BOM) translat
    npm run dev:clean
    ```
 
-6. Open [http://localhost:3002](http://localhost:3002) in your browser
+6. Choose your testing method:
+
+### Web Development (Browser)
+```bash
+npm run dev
+```
+Then open [http://localhost:3002](http://localhost:3002) in your browser
+
+### Desktop Development (Electron)
+```bash
+# For development with hot reload
+npm run electron-dev
+
+# For testing local workspace build (recommended for testing desktop features)
+npm run electron-local
+
+# Quick setup check
+npm run test-local
+```
 
 **Note**: The application runs on port 3002 by default (not 3000) to avoid conflicts with other applications.
 
@@ -139,6 +176,51 @@ rm -rf node_modules package-lock.json
 
 # Reinstall dependencies
 npm install
+```
+
+#### Electron Issues
+
+**Electron window doesn't appear:**
+```bash
+# Check if build exists
+npm run test-local
+
+# If no build, create it first
+npm run build
+npm run electron-local
+```
+
+**Electron shows blank page:**
+```bash
+# Check console for errors
+# In Electron: Press F12 to open DevTools
+
+# Verify build completed successfully
+npm run build
+
+# Try development mode
+npm run electron-dev
+```
+
+**Port conflicts in development mode:**
+```bash
+# Kill existing processes
+npm run kill-port
+
+# Use different port
+PORT=3003 npm run electron-dev
+```
+
+**File access issues in production:**
+```bash
+# Check database permissions
+# Database should be in user-writable location
+
+# Test local workspace
+npm run test-local
+
+# Reset database if needed
+npm run db:reset
 ```
 
 ## Usage
@@ -243,12 +325,16 @@ npm install
 - `npm run test-db-archives` - Validate archive discovery and ordering
 
 #### Electron Desktop App
-- `npm run electron` - Run Electron app
-- `npm run electron-dev` - Run Electron with development server
+- `npm run electron` - Run Electron app (uses default main process)
+- `npm run electron-dev` - Run Electron with development server (localhost:3002)
+- `npm run electron-local` - Build and run Electron from local files (no dev server)
 - `npm run electron-pack` - Build Electron package
 - `npm run electron-pack-win` - Build Windows package
 - `npm run electron-pack-mac` - Build macOS package
 - `npm run electron-pack-linux` - Build Linux package
+
+##### Local Workspace Testing
+- `npm run test-local` - Check local workspace setup and requirements
 
 ##### Port Management
 - `npm run kill-port [port]` - Kill process on specified port (defaults to 3002)
@@ -269,6 +355,42 @@ The application uses a custom server configuration (`server.ts`) that:
 
 ### Development Workflow
 
+#### Understanding Electron vs Web Development
+
+The framework supports both web browser and Electron desktop environments. Each has different use cases:
+
+| Feature | Web (`npm run dev`) | Electron (`npm run electron-*`) |
+|---------|---------------------|------------------------------|
+| **Development Speed** | ⚡ Faster reload | 🐢 Slower startup |
+| **Desktop Features** | ❌ No file access | ✅ Full file system |
+| **Native Menus** | ❌ Browser menu | ✅ Custom menus |
+| **Production Testing** | ❌ Not representative | ✅ True desktop experience |
+| **Hot Reload** | ✅ Instant | ⚠️ Limited |
+| **Debugging** | ✅ Browser DevTools | ✅ Electron DevTools |
+
+#### Electron Testing Commands Explained
+
+```bash
+# Development Mode (Hot Reload + Dev Server)
+npm run electron-dev
+# → Starts dev server on localhost:3002
+# → Wraps in Electron desktop window
+# → Good for UI development with desktop context
+
+# Local Workspace Mode (Production Build)
+npm run electron-local  
+# → Builds production version first
+# → Runs from local files (no server)
+# → Tests true desktop application
+# → Best for testing file operations, menus, etc.
+
+# Distribution Mode (Packaged App)
+npm run electron-pack
+# → Creates distributable desktop app
+# → Tests final packaged version
+# → Ready for deployment
+```
+
 #### Setting Up for First Time
 ```bash
 # 1. Install dependencies
@@ -281,8 +403,10 @@ npm run db:generate
 # 3. (Optional) Seed with sample data
 npx tsx scripts/seed-parts.ts
 
-# 4. Start development server
-npm run dev
+# 4. Choose your development method:
+#    - For web development: npm run dev
+#    - For desktop development: npm run electron-dev
+#    - For testing local build: npm run electron-local
 ```
 
 #### Making Database Changes
@@ -359,9 +483,150 @@ The framework uses SQLite by default for local development. The database file is
    - `npm run test-db-transfer` – round-trip export/import smoke test (requires `db/custom.db`).
    - `npm run test-db-archives` – validates archive discovery ordering and path guardrails.
 
+## Testing and Deployment
+
+### Testing Methods Comparison
+
+#### 1. Web Browser Testing (`npm run dev`)
+```bash
+npm run dev
+# Opens: http://localhost:3002 in browser
+```
+**Use Cases:**
+- ✅ UI/UX development
+- ✅ Component testing
+- ✅ Quick iteration
+- ✅ Code reviews
+- ✅ Browser compatibility testing
+
+**Limitations:**
+- ❌ No file system access
+- ❌ No desktop menus
+- ❌ No native integrations
+
+#### 2. Electron Development (`npm run electron-dev`)
+```bash
+npm run electron-dev
+# Starts dev server + wraps in Electron
+```
+**Use Cases:**
+- ✅ Desktop UI testing
+- ✅ Menu integration testing
+- ✅ Electron-specific features
+- ✅ Development with hot reload
+
+**Limitations:**
+- ⚠️ Still uses localhost (not true production)
+- ⚠️ Slower than web dev
+
+#### 3. Local Workspace Testing (`npm run electron-local`)
+```bash
+npm run electron-local
+# Builds + runs from local files
+```
+**Use Cases:**
+- ✅ **True desktop application testing**
+- ✅ File import/export testing
+- ✅ Production environment simulation
+- ✅ Performance testing
+- ✅ End-to-end workflows
+
+**Benefits:**
+- 🎯 Tests actual desktop app
+- 🎯 No localhost dependency
+- 🎯 Production build optimization
+- 🎯 File system access
+
+#### 4. Packaged Testing (`npm run electron-pack`)
+```bash
+npm run electron-pack
+# Creates distributable + runs it
+```
+**Use Cases:**
+- ✅ Final deployment testing
+- ✅ Distribution validation
+- ✅ Cross-platform testing
+
+### Recommended Testing Workflow
+
+```bash
+# 1. Quick development
+npm run dev
+
+# 2. Desktop feature development
+npm run electron-dev
+
+# 3. Production testing
+npm run electron-local
+
+# 4. Final validation
+npm run electron-pack
+```
+
+### Quick Setup Validation
+```bash
+# Check everything is ready for testing
+npm run test-local
+```
+
 ## Production Deployment
 
-### Building for Production
+### Desktop Application (Recommended)
+
+The BOM Management Framework is optimized for distribution as a desktop application using Electron.
+
+#### Quick Build
+```bash
+# Build and package for Windows
+npm run electron-pack-win
+
+# Build for all platforms
+npm run dist-all
+```
+
+#### Build Process Details
+```bash
+# 1. Clean previous builds
+Remove-Item -Recurse -Force dist, .next
+
+# 2. Build Next.js application (standalone mode)
+npm run build
+
+# 3. Verify standalone build
+npm run test-standalone
+
+# 4. Package with Electron
+npm run electron-pack-win
+```
+
+#### Output Structure
+```
+dist/
+├── BOM Management Framework Setup 1.0.0.exe  # Installer (~150-200 MB)
+└── win-unpacked/                              # Unpacked application
+    └── BOM Management Framework.exe           # Main executable
+```
+
+#### Build Optimization
+- **Standalone Mode**: Uses Next.js standalone output (85% size reduction)
+- **Bundle Size**: ~77 MB (vs 500+ MB with full node_modules)
+- **Startup Time**: ~333ms server startup
+- **Production Ready**: Optimized for performance and size
+
+### Installation
+1. **Run Installer**: Double-click `BOM Management Framework Setup 1.0.0.exe`
+2. **Choose Install Location**: Default is `C:\Program Files\BOM Management Framework`
+3. **Create Shortcuts**: Desktop and Start Menu shortcuts created automatically
+4. **Launch**: Click desktop shortcut or find in Start Menu
+
+### System Requirements
+- **OS**: Windows 10/11 (64-bit)
+- **RAM**: 4 GB minimum, 8 GB recommended
+- **Disk Space**: 500 MB for application + database
+- **Display**: 1280x800 minimum resolution
+
+### Web Server Deployment (Alternative)
+For web-based deployment:
 ```bash
 npm run build
 npm run start
@@ -369,6 +634,9 @@ npm run start
 
 ### Docker Deployment
 The application can be containerized for easy deployment. The SQLite database makes it portable and self-contained.
+
+### Distribution
+See [PACKAGING_GUIDE.md](docs/PACKAGING_GUIDE.md) for detailed packaging and distribution instructions.
 
 ## Extending the Framework
 

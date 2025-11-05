@@ -1,21 +1,39 @@
 # BOM Management Framework - Deployment Guide
 
 **Document Purpose:** Complete production deployment and packaging guidance  
-**Last Updated:** November 4, 2025
+**Last Updated:** November 5, 2025  
+**Deployment Strategy:** Next.js Standalone Mode + Electron (Production Ready)
 
 ---
 
 ## 🚀 Deployment Overview
 
-The BOM Management Framework supports multiple deployment scenarios:
-- **Web Application:** Standard Next.js web deployment
-- **Electron Desktop App:** Packaged desktop application for Windows/macOS/Linux
-- **Local Development:** Development server with hot reload
+The BOM Management Framework is optimized for production deployment as an Electron desktop application using Next.js standalone mode.
 
-### Target Environments
-- **Development:** Local development with file system access
-- **Staging:** Production-like environment for testing
-- **Production:** End-user deployment with proper security and performance
+### Deployment Strategy: Next.js Standalone Mode ✅
+**Implemented:** Sprints 1-3 (November 4-5, 2025)
+
+**Benefits:**
+- ✅ **85% size reduction** (77 MB vs 500+ MB)
+- ✅ **333ms server startup** (3x faster)
+- ✅ **Production optimized** with minimal dependencies
+- ✅ **Offline-capable** desktop application
+
+### Deployment Scenarios
+1. **Electron Desktop App** (Primary/Recommended)
+   - Packaged for Windows, macOS, Linux
+   - Fully offline-capable
+   - Native OS integration
+   - Size: ~150-200 MB installer
+
+2. **Web Application** (Alternative)
+   - Standard Next.js deployment
+   - Requires server hosting
+   - Not recommended for primary use case
+
+3. **Local Development**
+   - Hot reload development server
+   - Testing and debugging
 
 ---
 

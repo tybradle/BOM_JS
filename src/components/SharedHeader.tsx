@@ -123,7 +123,7 @@ export function SharedHeader() {
           <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-gradient-to-br from-blue-450 to-blue-800 rounded-lg flex items-center justify-center">
               <Image
-                src="/ats-logo.png"
+                src="/ATS-logo.png"
                 alt="ATS logo"
                 width={40}
                 height={28}

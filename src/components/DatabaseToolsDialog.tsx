@@ -6,12 +6,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { useBOMStore, DatabaseImportResult, MasterPartsImportResult } from '@/lib/store'
+import { useBOMStore, DatabaseImportResult, MasterPartsImportResult, DatabaseExportProgress } from '@/lib/store'
 import { DatabaseArchiveEntry } from '@/types/database'
-import { Download, UploadCloud, Database, ServerCog, RefreshCw, HardDriveDownload, FileSpreadsheet } from 'lucide-react'
+import { Download, UploadCloud, Database, ServerCog, RefreshCw, HardDriveDownload, FileSpreadsheet, Eye } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
+import { MasterPartsImportDialog } from './MasterPartsImportDialog'
 
 interface DatabaseToolsDialogProps {
   open: boolean
@@ -21,12 +23,18 @@ interface DatabaseToolsDialogProps {
 
 export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseToolsDialogProps) {
   const downloadDatabaseArchive = useBOMStore((state) => state.downloadDatabaseArchive)
+  const downloadDatabaseArchiveWithProgress = useBOMStore((state) => state.downloadDatabaseArchiveWithProgress)
   const uploadDatabaseArchive = useBOMStore((state) => state.uploadDatabaseArchive)
   const launchPrismaStudio = useBOMStore((state) => state.launchPrismaStudio)
   const fetchProjects = useBOMStore((state) => state.fetchProjects)
   const fetchDatabaseArchives = useBOMStore((state) => state.fetchDatabaseArchives)
   const importDatabaseArchivePath = useBOMStore((state) => state.importDatabaseArchivePath)
+  const createDatabaseArchive = useBOMStore((state) => state.createDatabaseArchive)
+  const deleteDatabaseArchive = useBOMStore((state) => state.deleteDatabaseArchive)
+  const restoreDatabaseArchive = useBOMStore((state) => state.restoreDatabaseArchive)
   const uploadMasterParts = useBOMStore((state) => state.uploadMasterParts)
+  const setExportProgress = useBOMStore((state) => state.setExportProgress)
+  const exportProgress = useBOMStore((state) => state.exportProgress)
   const { toast } = useToast()
 
   const [isExporting, setIsExporting] = useState(false)
@@ -38,12 +46,17 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
   const [archives, setArchives] = useState<DatabaseArchiveEntry[]>([])
   const [isLoadingArchives, setIsLoadingArchives] = useState(false)
   const [isImportingArchive, setIsImportingArchive] = useState<string | null>(null)
+  const [currentExportProgress, setCurrentExportProgress] = useState<DatabaseExportProgress | null>(null)
+  const [isCreatingArchive, setIsCreatingArchive] = useState(false)
+  const [archiveDescription, setArchiveDescription] = useState('')
+  const [isDeletingArchive, setIsDeletingArchive] = useState<string | null>(null)
   
   // Master Parts Import state
   const [isImportingParts, setIsImportingParts] = useState(false)
   const [selectedPartsFile, setSelectedPartsFile] = useState<File | null>(null)
   const [lastPartsImportResult, setLastPartsImportResult] = useState<MasterPartsImportResult | null>(null)
   const [clearExistingParts, setClearExistingParts] = useState(false)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const partsFileInputRef = useRef<HTMLInputElement | null>(null)
@@ -85,8 +98,13 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
 
   const handleDownload = useCallback(async () => {
     setIsExporting(true)
+    setCurrentExportProgress(null)
+    
     try {
-      const { blob, filename } = await downloadDatabaseArchive()
+      const { blob, filename } = await downloadDatabaseArchiveWithProgress((progress) => {
+        setCurrentExportProgress(progress)
+        setExportProgress(progress)
+      })
       
       // Check if running in Electron
       const isElectron = typeof window !== 'undefined' && 
@@ -147,8 +165,10 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
       })
     } finally {
       setIsExporting(false)
+      setCurrentExportProgress(null)
+      setExportProgress(null)
     }
-  }, [downloadDatabaseArchive, toast])
+  }, [downloadDatabaseArchiveWithProgress, setExportProgress, toast])
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -264,6 +284,99 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
     }
   }, [launchPrismaStudio, toast])
 
+  const handleCreateArchive = useCallback(async () => {
+    if (!archiveDescription.trim()) {
+      toast({
+        title: 'Description required',
+        description: 'Please enter a description for the archive.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setIsCreatingArchive(true)
+    try {
+      const result = await createDatabaseArchive(archiveDescription.trim())
+      toast({
+        title: 'Archive created successfully',
+        description: `Archive ${result.filename} has been created.`
+      })
+      setArchiveDescription('')
+      await refreshArchives()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create archive.'
+      toast({
+        title: 'Archive creation failed',
+        description: message,
+        variant: 'destructive'
+      })
+    } finally {
+      setIsCreatingArchive(false)
+    }
+  }, [archiveDescription, createDatabaseArchive, refreshArchives, toast])
+
+  const handleDeleteArchive = useCallback(async (archivePath: string, archiveName: string) => {
+    if (!confirm(`Are you sure you want to delete archive "${archiveName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    setIsDeletingArchive(archivePath)
+    try {
+      const result = await deleteDatabaseArchive(archivePath)
+      toast({
+        title: 'Archive deleted successfully',
+        description: result.message
+      })
+      await refreshArchives()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete archive.'
+      toast({
+        title: 'Archive deletion failed',
+        description: message,
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeletingArchive(null)
+    }
+  }, [deleteDatabaseArchive, refreshArchives, toast])
+
+  const handleRestoreArchive = useCallback(async (archivePath: string, archiveName: string) => {
+    if (!confirm(`Restoring archive "${archiveName}" will replace the current database. Continue?`)) {
+      return
+    }
+
+    setIsImportingArchive(archivePath)
+    try {
+      const result = await restoreDatabaseArchive(archivePath, true)
+      setLastImportResult({
+        message: result.message,
+        backup: result.backupPath || null,
+        validation: {
+          tables: [],
+          integrity: 'Restored successfully'
+        }
+      })
+      toast({
+        title: 'Database restored successfully',
+        description: result.backupPath
+          ? `Previous database backed up as ${result.backupPath}.`
+          : 'Database restored successfully.'
+      })
+
+      await fetchProjects()
+      await refreshArchives()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to restore archive.'
+      toast({
+        title: 'Archive restore failed',
+        description: message,
+        variant: 'destructive'
+      })
+    } finally {
+      setIsImportingArchive(null)
+    }
+  }, [fetchProjects, restoreDatabaseArchive, refreshArchives, toast])
+
   const resetPartsFileInput = useCallback(() => {
     setSelectedPartsFile(null)
     if (partsFileInputRef.current) {
@@ -364,14 +477,28 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </p>
               </div>
             </div>
-            <Button onClick={handleDownload} disabled={isExporting} className="w-full">
-              {isExporting ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
+            <div className="space-y-3">
+              {currentExportProgress && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{currentExportProgress.message}</span>
+                    <span className="text-muted-foreground">{currentExportProgress.progress}%</span>
+                  </div>
+                  <Progress value={currentExportProgress.progress} className="w-full" />
+                  {currentExportProgress.details && (
+                    <p className="text-xs text-muted-foreground">{currentExportProgress.details}</p>
+                  )}
+                </div>
               )}
-              {isExporting ? 'Preparing archive...' : 'Export Database'}
-            </Button>
+              <Button onClick={handleDownload} disabled={isExporting} className="w-full">
+                {isExporting ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isExporting ? 'Exporting...' : 'Export Database'}
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-lg border p-4 shadow-sm">
@@ -473,6 +600,54 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
               </p>
             )}
           </div>
+
+          <div className="md:col-span-2 rounded-lg border p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-md bg-blue-100 p-2 text-blue-700">
+                <Database className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Create Archive</h3>
+                <p className="text-sm text-muted-foreground">
+                  Create a new database archive with a description.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="archive-description">Description</Label>
+                <Input
+                  id="archive-description"
+                  type="text"
+                  placeholder="Enter archive description (e.g., 'Weekly backup')"
+                  value={archiveDescription}
+                  onChange={(e) => setArchiveDescription(e.target.value)}
+                  disabled={isCreatingArchive}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setArchiveDescription('')} 
+                  disabled={!archiveDescription.trim() || isCreatingArchive}
+                >
+                  Clear
+                </Button>
+                <Button 
+                  onClick={handleCreateArchive} 
+                  disabled={!archiveDescription.trim() || isCreatingArchive}
+                >
+                  {isCreatingArchive ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Database className="mr-2 h-4 w-4" />
+                  )}
+                  {isCreatingArchive ? 'Creating...' : 'Create Archive'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <div className="md:col-span-2 rounded-lg border p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -518,7 +693,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleImportArchivePath(archive.path)}
+                            onClick={() => handleRestoreArchive(archive.path, archive.name)}
                             disabled={isImportingArchive === archive.path}
                           >
                             {isImportingArchive === archive.path ? (
@@ -526,7 +701,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                             ) : (
                               <UploadCloud className="mr-2 h-4 w-4" />
                             )}
-                            {isImportingArchive === archive.path ? 'Importing...' : 'Import'}
+                            {isImportingArchive === archive.path ? 'Restoring...' : 'Restore'}
                           </Button>
                           <a
                             href={`/api/database/archive?path=${encodeURIComponent(archive.path)}`}
@@ -535,6 +710,19 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                             <Download className="mr-2 h-4 w-4" />
                             Download
                           </a>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteArchive(archive.path, archive.name)}
+                            disabled={isDeletingArchive === archive.path}
+                          >
+                            {isDeletingArchive === archive.path ? (
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <UploadCloud className="mr-2 h-4 w-4" />
+                            )}
+                            {isDeletingArchive === archive.path ? 'Deleting...' : 'Delete'}
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -588,9 +776,15 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
               </div>
               
               <div className="flex items-center justify-between gap-2">
-                <Button variant="outline" onClick={resetPartsFileInput} disabled={!selectedPartsFile || isImportingParts}>
-                  Clear Selection
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setPreviewDialogOpen(true)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview Import
+                  </Button>
+                  <Button variant="outline" onClick={resetPartsFileInput} disabled={!selectedPartsFile || isImportingParts}>
+                    Clear Selection
+                  </Button>
+                </div>
                 <Button onClick={handlePartsImport} disabled={isImportingParts || !selectedPartsFile}>
                   {isImportingParts ? (
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -630,6 +824,16 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
           </div>
         </div>
       </DialogContent>
+      
+      {/* Master Parts Import Preview Dialog */}
+      <MasterPartsImportDialog
+        open={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        onImportComplete={() => {
+          setPreviewDialogOpen(false)
+          // Refresh data or trigger any needed updates
+        }}
+      />
     </Dialog>
   )
 }

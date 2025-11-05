@@ -32,8 +32,9 @@ export function getTempDirectory(): string {
     if (process.versions && 'electron' in process.versions) {
       // Attempt to get app from electron module
       // This works in main process or with remote
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const electron = require('electron')
-      const app = electron.app || electron.remote?.app
+      const app = electron.app || (electron as any).remote?.app
       
       if (app && typeof app.getPath === 'function') {
         return path.join(app.getPath('userData'), 'temp')
