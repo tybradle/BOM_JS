@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,25 +13,50 @@ export default function BOMRedirect() {
   const router = useRouter()
   const { projects, createProject } = useBOMStore()
 
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
-    // If there are projects, redirect to the first one
     if (projects.length > 0) {
-      router.push(`/bom/${projects[0].id}`)
+      const target = `/bom/${projects[0].id}`
+      router.push(target)
     }
   }, [projects, router])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleResize = () => {
+      // Resize handling removed for production
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
 
   const handleCreateProject = async () => {
     const projectNumber = `PRJ-${Date.now()}`
     const packageName = 'New Project'
-    
+
     await createProject({
       projectNumber,
       packageName,
       name: 'New BOM Project',
       description: 'Created from BOM page'
     })
-    
-    // After creating, redirect will happen automatically
+  }
+
+  const handleOpenProjectManager = () => {
+    openProjectManager()
+  }
+
+  const handleSelectProject = (projectId: string) => {
+    router.push(`/bom/${projectId}`)
   }
 
   return (
@@ -56,28 +81,27 @@ export default function BOMRedirect() {
         </div>
 
         {/* Main Content */}
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card className="w-full max-w-md">
+        <div ref={containerRef} className="flex items-center justify-center min-h-[300px]">
+          <Card ref={cardRef} className="max-w-xs mx-auto">
             <CardHeader className="text-center">
               <CardTitle>BOM Management</CardTitle>
               <CardDescription>
-                {projects.length === 0 
-                  ? "Create your first project to get started with BOM management"
-                  : "Redirecting to your project..."
-                }
+                {projects.length === 0
+                  ? 'Create your first project to get started with BOM management'
+                  : 'Redirecting to your project...'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-6 space-y-4">
               {projects.length === 0 ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
                     No projects found. Create your first project to start managing your bill of materials.
                   </p>
-                  <Button onClick={handleCreateProject} className="w-full">
+                  <Button onClick={handleCreateProject} className="w-full" size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Create First Project
                   </Button>
-                  <Button variant="outline" className="w-full" onClick={() => openProjectManager()}>
+                  <Button variant="outline" className="w-full" size="sm" onClick={handleOpenProjectManager}>
                     <FolderOpen className="w-4 h-4 mr-2" />
                     Go to Project Manager
                   </Button>
@@ -88,18 +112,21 @@ export default function BOMRedirect() {
                     Found {projects.length} project(s). Redirecting you to the first one...
                   </p>
                   <div className="space-y-2">
-                    {projects.map((project) => (
-                      <Button
-                        key={project.id}
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => router.push(`/bom/${project.id}`)}
-                      >
-                        {project.name || `${project.projectNumber} - ${project.packageName}`}
-                      </Button>
-                      ))}
+                    {projects.map((project) => {
+                      return (
+                        <Button
+                          key={project.id}
+                          variant="outline"
+                          className="w-full justify-start"
+                          size="sm"
+                          onClick={() => handleSelectProject(project.id)}
+                        >
+                          {project.name || `${project.projectNumber} - ${project.packageName}`}
+                        </Button>
+                      )
+                    })}
                   </div>
-                  <Button variant="outline" className="w-full" onClick={() => openProjectManager()}>
+                  <Button variant="outline" className="w-full" size="sm" onClick={handleOpenProjectManager}>
                     <FolderOpen className="w-4 h-4 mr-2" />
                     Project Manager
                   </Button>

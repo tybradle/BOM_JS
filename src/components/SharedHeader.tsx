@@ -171,7 +171,7 @@ export function SharedHeader() {
                             New Project
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-md">
                           <DialogHeader>
                             <DialogTitle>Create New Project</DialogTitle>
                             <DialogDescription>

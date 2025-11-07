@@ -36,6 +36,15 @@
 - **Location**: `/src/components/DatabaseToolsDialog.tsx`
 - **Purpose**: Database management operations
 - **Features**: Backup, restore, archive management
+- **Recent Updates (2025-01-07)**:
+  - **Removed Prisma Studio**: Eliminated Prisma Studio launch functionality and related state
+  - **Optimized Layout**: Changed from 3-column adaptive to fixed 2-column grid layout
+  - **Fixed Button Overflow**: Resolved Master Parts Import button overflow issues
+  - **Standardized Cards**: Applied consistent `min-h-[220px] flex flex-col` structure
+  - **Grid Configuration**: `grid-cols-1 md:grid-cols-2 lg:grid-cols-2`
+  - **Button Layout**: Responsive grid for Master Parts Import buttons with `size="sm"`
+  - **Text Optimization**: Shortened "Import Master Parts" to "Import Parts"
+  - **Removed Imports**: Cleaned up unused `ServerCog` icon and related functions
 
 ### PartSearchDialog
 - **Location**: `/src/components/PartSearchDialog.tsx`
@@ -121,15 +130,55 @@ const handleUpdate = async (id, updates) => {
 }
 ```
 
+### Responsive Grid Layout Pattern (Updated 2025-01-07)
+```typescript
+// Fixed 2-column layout for consistent appearance
+<div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+  <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
+    <div className="flex-1">Content area</div>
+    <div className="mt-auto">Action buttons</div>
+  </div>
+</div>
+```
+
+### Button Overflow Prevention Pattern (Updated 2025-01-07)
+```typescript
+// Responsive button layout to prevent overflow
+<div className="space-y-3">
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <Button variant="outline" size="sm">Preview</Button>
+    <Button variant="outline" size="sm">Clear</Button>
+  </div>
+  <Button className="w-full">Import Parts</Button>
+</div>
+```
+
 ## Styling Guidelines
 - Use Tailwind CSS classes consistently
 - Follow shadcn/ui design tokens
 - Implement responsive design with mobile-first approach
 - Use semantic HTML elements
 - Maintain consistent spacing and typography
+- **Updated**: Use fixed grid layouts instead of adaptive `auto-fit` for consistency
 
 ## TypeScript Patterns
 - Define interfaces for all props
 - Use generic types where appropriate
 - Implement proper error boundaries
 - Use discriminated unions for variant types
+- **Updated**: Remove unused imports and state variables for cleaner code
+
+## Recent Architecture Changes (2025-01-07)
+
+### DatabaseToolsDialog Optimization
+1. **Layout Simplification**: Removed adaptive grid in favor of fixed 2-column layout
+2. **Component Cleanup**: Removed Prisma Studio functionality entirely
+3. **Button Optimization**: Fixed overflow issues with responsive button layouts
+4. **Visual Consistency**: Standardized card dimensions and spacing
+5. **Code Quality**: Removed unused state, functions, and imports
+
+### Performance Improvements
+- Reduced component complexity by removing unused features
+- Improved responsive behavior with predictable grid layouts
+- Enhanced mobile experience with proper button sizing
+- Maintained accessibility with semantic HTML structure

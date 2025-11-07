@@ -14,6 +14,7 @@ import { Settings, Sun, Moon, Monitor, Type, Layout, Bell, Download, Upload, Fil
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+
 interface SettingsDialogProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -49,7 +50,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange }: SettingsD
           Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Application Settings</DialogTitle>
           <DialogDescription>
@@ -57,7 +58,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange }: SettingsD
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col flex-1">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="appearance" className="flex items-center gap-2">
               <Sun className="w-4 h-4" />
@@ -81,7 +82,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange }: SettingsD
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto mt-6">
+          <div className="flex-1 overflow-y-auto mt-6" style={{ maxHeight: 'calc(85vh - 180px)' }}>
             <TabsContent value="appearance" className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
