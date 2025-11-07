@@ -81,70 +81,147 @@ function startServer() {
     }
 
     // Production mode: use standalone server
-    // In packaged app: resources/app/.next/standalone/server.js
+    // In packaged app: resources/app/dist-server/server.js (our custom compiled server)
     // __dirname in packaged app points to resources/app/public
-    // In electron-local mode: __dirname is public/, but .next is in parent (project root)
+    // In electron-local mode: __dirname is public/, but dist-server is in parent (project root)
     const isPackaged = !isDev && __dirname.includes('resources')
-    const basePath = isPackaged ? path.join(__dirname, '..') : path.join(__dirname, '..')
-    const standaloneServerPath = path.join(basePath, '.next/standalone/server.js')
-    const standaloneCwd = path.join(basePath, '.next/standalone')
     
-    console.log('Checking for standalone server at:', standaloneServerPath)
-    if (!fs.existsSync(standaloneServerPath)) {
-      const errorMsg = `Standalone server not found at: ${standaloneServerPath}\n__dirname: ${__dirname}\nbasePath: ${basePath}`
-      console.error(errorMsg)
-      reject(new Error(errorMsg))
-      return
+    // For packaged apps with ASAR, check if files are unpacked (.asar.unpacked)
+    let basePath = isPackaged ? path.join(__dirname, '..') : path.join(__dirname, '..')
+    
+    // If using ASAR, unpacked files are in app.asar.unpacked directory
+    if (isPackaged && basePath.includes('app.asar')) {
+      const unpackedPath = basePath.replace('app.asar', 'app.asar.unpacked')
+      if (fs.existsSync(unpackedPath)) {
+        console.log('Using unpacked ASAR directory:', unpackedPath)
+        basePath = unpackedPath
+      }
+    }
+    
+    // Try our compiled custom server first (includes Socket.IO)
+    const customServerPath = path.join(basePath, 'dist-server/server.js')
+    const standaloneServerPath = path.join(basePath, '.next/standalone/server.js')
+    
+    let serverPath = customServerPath
+    let serverCwd = basePath
+    
+    console.log('Checking for custom compiled server at:', customServerPath)
+    if (fs.existsSync(customServerPath)) {
+      console.log('✓ Found custom server (with Socket.IO support)')
+      serverPath = customServerPath
+      serverCwd = basePath
+    } else {
+      console.log('Custom server not found, falling back to standalone server at:', standaloneServerPath)
+      if (!fs.existsSync(standaloneServerPath)) {
+        const errorMsg = `Neither custom server nor standalone server found!\nCustom: ${customServerPath}\nStandalone: ${standaloneServerPath}\n__dirname: ${__dirname}\nbasePath: ${basePath}`
+        console.error(errorMsg)
+        reject(new Error(errorMsg))
+        return
+      }
+      serverPath = standaloneServerPath
+      serverCwd = path.join(basePath, '.next/standalone')
     }
 
-    console.log('Starting standalone Next.js server...')
+    console.log('Starting server...')
+    console.log('Server path:', serverPath)
+    console.log('Working directory:', serverCwd)
     
     // Next.js standalone requires .next/static and public folders to be accessible
-    // Copy them to the standalone directory if they don't exist
-    const staticSource = path.join(basePath, '.next/static')
-    const staticDest = path.join(standaloneCwd, '.next/static')
-    const publicSource = path.join(basePath, 'public')
-    const publicDest = path.join(standaloneCwd, 'public')
-    
-    // Create .next directory in standalone if needed
-    const standaloneNextDir = path.join(standaloneCwd, '.next')
-    if (!fs.existsSync(standaloneNextDir)) {
-      fs.mkdirSync(standaloneNextDir, { recursive: true })
+    // For standalone server, copy them to the standalone directory if they don't exist
+    if (serverPath.includes('.next/standalone')) {
+      const staticSource = path.join(basePath, '.next/static')
+      const staticDest = path.join(serverCwd, '.next/static')
+      const publicSource = path.join(basePath, 'public')
+      const publicDest = path.join(serverCwd, 'public')
+      
+      // Create .next directory in standalone if needed
+      const standaloneNextDir = path.join(serverCwd, '.next')
+      if (!fs.existsSync(standaloneNextDir)) {
+        fs.mkdirSync(standaloneNextDir, { recursive: true })
+      }
+      
+      // Only copy static/public folders if they don't exist (first run optimization)
+      // This prevents unnecessary I/O on every app launch
+      if (fs.existsSync(staticSource) && !fs.existsSync(staticDest)) {
+        console.log('First run: Copying static folder to standalone...')
+        fs.cpSync(staticSource, staticDest, { recursive: true })
+        console.log('Static folder copied successfully')
+      } else if (fs.existsSync(staticDest)) {
+        console.log('Static folder already exists, skipping copy')
+      }
+      
+      if (fs.existsSync(publicSource) && !fs.existsSync(publicDest)) {
+        console.log('First run: Copying public folder to standalone...')
+        fs.cpSync(publicSource, publicDest, { recursive: true })
+        console.log('Public folder copied successfully')
+      } else if (fs.existsSync(publicDest)) {
+        console.log('Public folder already exists, skipping copy')
+      }
+    } else {
+      console.log('Using custom server, no static folder copy needed')
     }
     
-    // Only copy static/public folders if they don't exist (first run optimization)
-    // This prevents unnecessary I/O on every app launch
-    if (fs.existsSync(staticSource) && !fs.existsSync(staticDest)) {
-      console.log('First run: Copying static folder to standalone...')
-      fs.cpSync(staticSource, staticDest, { recursive: true })
-      console.log('Static folder copied successfully')
-    } else if (fs.existsSync(staticDest)) {
-      console.log('Static folder already exists, skipping copy')
+    // In production (packaged), run the server directly in the Electron process
+    // instead of spawning a separate process (which doesn't work from ASAR)
+    if (!isDev) {
+      console.log('Production mode: Running server directly in Electron process')
+      
+      try {
+        // Set environment variables for the server
+        process.env.NODE_ENV = 'production'
+        process.env.PORT = '3002'
+        
+        // Set the Next.js directory path for the server
+        // The server uses process.cwd() but we're in an ASAR, so we need to provide the path
+        // For custom server: basePath should contain .next folder
+        // For standalone: serverCwd points to .next/standalone
+        const nextDir = serverPath.includes('.next/standalone') 
+          ? path.join(basePath, '.next/standalone')
+          : basePath
+        
+        console.log('Next.js directory:', nextDir)
+        console.log('Loading server from:', serverPath)
+        
+        // Store original cwd to restore later
+        const originalCwd = process.cwd()
+        
+        // Temporarily override process.cwd() to return the correct path
+        const originalCwdFn = process.cwd
+        process.cwd = () => nextDir
+        
+        // Require and run the server
+        require(serverPath)
+        
+        console.log('Server module loaded successfully')
+        
+        // Restore original cwd function (though it won't be used again in this context)
+        // process.cwd = originalCwdFn
+        
+        // Give the server a moment to start listening
+        setTimeout(() => {
+          console.log('Server should be ready at http://localhost:3002')
+          resolve('http://localhost:3002')
+        }, 3000)
+        
+      } catch (error) {
+        console.error('Failed to start server:', error)
+        reject(error)
+      }
+      
+      return
     }
     
-    if (fs.existsSync(publicSource) && !fs.existsSync(publicDest)) {
-      console.log('First run: Copying public folder to standalone...')
-      fs.cpSync(publicSource, publicDest, { recursive: true })
-      console.log('Public folder copied successfully')
-    } else if (fs.existsSync(publicDest)) {
-      console.log('Public folder already exists, skipping copy')
-    }
+    // Development mode: spawn as separate process
+    console.log('Development mode: Spawning server as separate process')
     
-    // Use process.execPath to get Electron's Node.js in production
-    const nodePath = process.execPath
-    console.log('Using Node.js from:', nodePath)
-    console.log('Server script:', standaloneServerPath)
-    console.log('Working directory:', standaloneCwd)
-    
-    serverProcess = spawn(nodePath, [standaloneServerPath], {
-      cwd: standaloneCwd,
+    serverProcess = spawn('node', [serverPath], {
+      cwd: serverCwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
       env: {
         ...process.env,
         NODE_ENV: 'production',
-        PORT: '3002',
-        ELECTRON_RUN_AS_NODE: '1'
+        PORT: '3002'
       }
     })
 

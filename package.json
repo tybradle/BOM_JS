@@ -25,8 +25,9 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3002 && electron .\"",
     "electron-local": "npm run build && cross-env NODE_ENV=production electron .",
-    "electron-pack": "npm run build && electron-builder",
-    "electron-pack-win": "npm run build && electron-builder --win",
+    "build:server": "node scripts/build-server.js",
+    "electron-pack": "npm run build && npm run build:server && electron-builder",
+    "electron-pack-win": "npm run build && npm run build:server && electron-builder --win",
     "test-standalone": "npm run build && node .next/standalone/server.js",
     "electron-pack-mac": "npm run build && electron-builder --mac",
     "electron-pack-linux": "npm run build && electron-builder --linux",
@@ -41,8 +42,9 @@
       "buildResources": "public"
     },
     "files": [
-      ".next/standalone/**/*",
-      ".next/static/**/*",
+      ".next/**/*",
+      "!.next/cache/**/*",
+      "dist-server/**/*",
       "public/electron.js",
       "public/preload.js",
       "public/splash.html",
@@ -51,11 +53,18 @@
       "public/*.svg",
       "db/**/*",
       "prisma/schema.prisma",
-      "!node_modules/**/*"
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/@prisma/client/**",
+      "**/.prisma/**",
+      "**/node_modules/sharp/**"
     ],
     "asar": false,
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
+    "nodeGypRebuild": false,
+    "beforePack": "./scripts/electron-builder-hook.js",
     "forceCodeSigning": false,
     "extraResources": [
       {
@@ -191,6 +200,7 @@
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "esbuild": "^0.24.2",
     "electron": "^38.3.0",
     "electron-builder": "^26.0.12",
     "electron-icon-builder": "^2.0.1",
