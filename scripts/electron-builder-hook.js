@@ -22,29 +22,25 @@ const devDepsToHide = [
 
 const renamedDeps = [];
 
-exports.default = async function(context) {
-  const stage = context.packager ? 'afterPack' : 'beforePack';
+module.exports = async function(context) {
+  console.log('BeforePack: Temporarily hiding dev dependencies...');
   
-  if (stage === 'beforePack') {
-    console.log('BeforePack: Temporarily hiding dev dependencies...');
+  for (const dep of devDepsToHide) {
+    const depPath = path.join(projectRoot, 'node_modules', dep);
+    const hiddenPath = depPath + '.hidden';
     
-    for (const dep of devDepsToHide) {
-      const depPath = path.join(projectRoot, 'node_modules', dep);
-      const hiddenPath = depPath + '.hidden';
-      
-      if (fs.existsSync(depPath)) {
-        try {
-          fs.renameSync(depPath, hiddenPath);
-          renamedDeps.push({ from: hiddenPath, to: depPath });
-          console.log(`  Hidden: ${dep}`);
-        } catch (err) {
-          console.warn(`  Failed to hide ${dep}:`, err.message);
-        }
+    if (fs.existsSync(depPath)) {
+      try {
+        fs.renameSync(depPath, hiddenPath);
+        renamedDeps.push({ from: hiddenPath, to: depPath });
+        console.log(`  Hidden: ${dep}`);
+      } catch (err) {
+        console.warn(`  Failed to hide ${dep}:`, err.message);
       }
     }
-    
-    console.log(`BeforePack: Hidden ${renamedDeps.length} dev dependencies`);
   }
+  
+  console.log(`BeforePack: Hidden ${renamedDeps.length} dev dependencies`);
 };
 
 // Cleanup function to restore hidden dependencies

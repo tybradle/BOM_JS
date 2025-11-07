@@ -185,7 +185,6 @@
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
-    "tsx": "^4.20.3",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
     "xlsx": "^0.18.5",
@@ -195,6 +194,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "tsx": "^4.20.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
