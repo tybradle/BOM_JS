@@ -42,6 +42,17 @@
       "buildResources": "public"
     },
     "files": [
+      "!**node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**node_modules/*.d.ts",
+      "!**node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
       ".next/**/*",
       "!.next/cache/**/*",
       "dist-server/**/*",
@@ -53,7 +64,9 @@
       "public/*.svg",
       "db/**/*",
       "prisma/schema.prisma",
-      "package.json"
+      "package.json",
+      "next.config.js",
+      ".env"
     ],
     "asarUnpack": [
       "**/@prisma/client/**",
@@ -74,6 +87,14 @@
       {
         "from": "public",
         "to": "public"
+      },
+      {
+        "from": "node_modules/.prisma",
+        "to": "node_modules/.prisma"
+      },
+      {
+        "from": "node_modules/@prisma/client",
+        "to": "node_modules/@prisma/client"
       }
     ],
     "mac": {

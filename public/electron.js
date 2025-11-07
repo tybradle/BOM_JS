@@ -179,6 +179,20 @@ function startServer() {
           ? path.join(basePath, '.next/standalone')
           : basePath
         
+        // Set DATABASE_URL for Prisma - use fixed user data location
+        // Database is stored at C:\Users\tybradley\BOM_SUITE\custom.db (no db subfolder)
+        const bomSuiteDir = 'C:\\Users\\tybradley\\BOM_SUITE'
+        const dbPath = path.join(bomSuiteDir, 'custom.db')
+        
+        // Create the BOM_SUITE directory if it doesn't exist
+        if (!fs.existsSync(bomSuiteDir)) {
+          console.log('Creating BOM_SUITE directory:', bomSuiteDir)
+          fs.mkdirSync(bomSuiteDir, { recursive: true })
+        }
+        
+        process.env.DATABASE_URL = `file:${dbPath}`
+        console.log('DATABASE_URL set to:', process.env.DATABASE_URL)
+        
         console.log('Next.js directory:', nextDir)
         console.log('Loading server from:', serverPath)
         
