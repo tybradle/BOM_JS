@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useBOMStore, DatabaseImportResult, MasterPartsImportResult, DatabaseExportProgress } from '@/lib/store'
 import { DatabaseArchiveEntry } from '@/types/database'
-import { Download, UploadCloud, Database, ServerCog, RefreshCw, HardDriveDownload, FileSpreadsheet, Eye } from 'lucide-react'
+import { Download, UploadCloud, Database, RefreshCw, HardDriveDownload, FileSpreadsheet, Eye } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -25,7 +25,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
   const downloadDatabaseArchive = useBOMStore((state) => state.downloadDatabaseArchive)
   const downloadDatabaseArchiveWithProgress = useBOMStore((state) => state.downloadDatabaseArchiveWithProgress)
   const uploadDatabaseArchive = useBOMStore((state) => state.uploadDatabaseArchive)
-  const launchPrismaStudio = useBOMStore((state) => state.launchPrismaStudio)
+  
   const fetchProjects = useBOMStore((state) => state.fetchProjects)
   const fetchDatabaseArchives = useBOMStore((state) => state.fetchDatabaseArchives)
   const importDatabaseArchivePath = useBOMStore((state) => state.importDatabaseArchivePath)
@@ -39,10 +39,10 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
 
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const [isLaunchingStudio, setIsLaunchingStudio] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  
+const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [lastImportResult, setLastImportResult] = useState<DatabaseImportResult | null>(null)
-  const [studioUrl, setStudioUrl] = useState<string | null>(null)
+  
   const [archives, setArchives] = useState<DatabaseArchiveEntry[]>([])
   const [isLoadingArchives, setIsLoadingArchives] = useState(false)
   const [isImportingArchive, setIsImportingArchive] = useState<string | null>(null)
@@ -260,29 +260,9 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
     } finally {
       setIsImportingArchive(null)
     }
-  }, [fetchProjects, importDatabaseArchivePath, refreshArchives, toast])
+}, [fetchProjects, importDatabaseArchivePath, refreshArchives, toast])
 
-  const handleLaunchStudio = useCallback(async () => {
-    setIsLaunchingStudio(true)
-    try {
-      const { url } = await launchPrismaStudio()
-      setStudioUrl(url)
-      toast({
-        title: 'Prisma Studio launched',
-        description: `Studio is available at ${url}`
-      })
-      window.open(url, '_blank', 'noopener,noreferrer')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to launch Prisma Studio.'
-      toast({
-        title: 'Prisma Studio launch failed',
-        description: message,
-        variant: 'destructive'
-      })
-    } finally {
-      setIsLaunchingStudio(false)
-    }
-  }, [launchPrismaStudio, toast])
+
 
   const handleCreateArchive = useCallback(async () => {
     if (!archiveDescription.trim()) {
@@ -417,7 +397,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
         variant: 'destructive'
       })
       return
-    }
+}
 
     const action = clearExistingParts ? 'replace' : 'update'
     const confirmMessage = clearExistingParts
@@ -455,8 +435,8 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {children}
-      <DialogContent className="max-w-3xl">
+{children}
+      <DialogContent className="w-[95vw] max-w-[1600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Database Management</DialogTitle>
           <DialogDescription>
@@ -464,8 +444,8 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
           </DialogDescription>
         </DialogHeader>
 
-  <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-lg border p-4 shadow-sm">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <div className="rounded-md bg-blue-100 p-2 text-blue-700">
                 <Download className="h-5 w-5" />
@@ -477,7 +457,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="flex-1 space-y-3">
               {currentExportProgress && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -501,7 +481,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
             </div>
           </div>
 
-          <div className="rounded-lg border p-4 shadow-sm">
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <div className="rounded-md bg-amber-100 p-2 text-amber-700">
                 <UploadCloud className="h-5 w-5" />
@@ -513,7 +493,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="flex-1 space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="database-import-file">Backup Archive</Label>
                 <Input
@@ -543,36 +523,11 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </Button>
               </div>
             </div>
-          </div>
+</div>
 
-          <div className="rounded-lg border p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="rounded-md bg-green-100 p-2 text-green-700">
-                <ServerCog className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold">Launch Prisma Studio</h3>
-                <p className="text-sm text-muted-foreground">
-                  Open Prisma Studio in your browser to inspect or edit data.
-                </p>
-              </div>
-            </div>
-            <Button onClick={handleLaunchStudio} disabled={isLaunchingStudio} className="w-full">
-              {isLaunchingStudio ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Database className="mr-2 h-4 w-4" />
-              )}
-              {isLaunchingStudio ? 'Starting Prisma Studio...' : 'Launch Prisma Studio'}
-            </Button>
-            {studioUrl && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Last opened: <a href={studioUrl} className="underline" target="_blank" rel="noreferrer">{studioUrl}</a>
-              </p>
-            )}
-          </div>
 
-          <div className="rounded-lg border p-4 shadow-sm">
+
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <div className="rounded-md bg-slate-100 p-2 text-slate-700">
                 <RefreshCw className="h-5 w-5" />
@@ -584,24 +539,26 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </p>
               </div>
             </div>
-            {lastImportResult ? (
-              <div className="space-y-2 text-sm">
-                <p>Status: {lastImportResult.validation.integrity}</p>
-                <p>Tables detected: {lastImportResult.validation.tables.join(', ')}</p>
-                {lastImportResult.backup && (
-                  <p className="text-xs text-muted-foreground">
-                    Backup created: {lastImportResult.backup}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No import has been run in this session.
-              </p>
-            )}
+            <div className="flex-1">
+              {lastImportResult ? (
+                <div className="space-y-2 text-sm">
+                  <p>Status: {lastImportResult.validation.integrity}</p>
+                  <p>Tables detected: {lastImportResult.validation.tables.join(', ')}</p>
+                  {lastImportResult.backup && (
+                    <p className="text-xs text-muted-foreground">
+                      Backup created: {lastImportResult.backup}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No import has been run in this session.
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="md:col-span-2 rounded-lg border p-4 shadow-sm">
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <div className="rounded-md bg-blue-100 p-2 text-blue-700">
                 <Database className="h-5 w-5" />
@@ -613,7 +570,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="flex-1 space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="archive-description">Description</Label>
                 <Input
@@ -648,7 +605,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
             </div>
           </div>
 
-          <div className="md:col-span-2 rounded-lg border p-4 shadow-sm">
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="rounded-md bg-purple-100 p-2 text-purple-700">
@@ -671,13 +628,13 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
               </Button>
             </div>
 
-            <div className="space-y-3">
+            <div className="flex-1 space-y-3">
               {formattedArchives.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {isLoadingArchives ? 'Loading archives...' : 'No archives found in the configured directories.'}
                 </p>
               ) : (
-                <ScrollArea className="max-h-64">
+                <ScrollArea className="max-h-64 sm:max-h-48">
                   <div className="space-y-2">
                     {formattedArchives.map((archive) => (
                       <div key={archive.path} className="flex items-center justify-between gap-3 rounded-md border p-3">
@@ -732,7 +689,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
             </div>
           </div>
           
-          <div className="md:col-span-2 rounded-lg border p-4 shadow-sm">
+          <div className="rounded-lg border p-4 shadow-sm min-h-[220px] flex flex-col">
             <div className="mb-3 flex items-center gap-2">
               <div className="rounded-md bg-indigo-100 p-2 text-indigo-700">
                 <FileSpreadsheet className="h-5 w-5" />
@@ -745,7 +702,7 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
               </div>
             </div>
             
-            <div className="space-y-3">
+            <div className="flex-1 space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="parts-import-file">Parts File (CSV or Excel)</Label>
                 <Input
@@ -775,23 +732,24 @@ export function DatabaseToolsDialog({ open, onOpenChange, children }: DatabaseTo
                 </Label>
               </div>
               
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setPreviewDialogOpen(true)}>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPreviewDialogOpen(true)}>
                     <Eye className="mr-2 h-4 w-4" />
-                    Preview Import
+                    Preview
                   </Button>
-                  <Button variant="outline" onClick={resetPartsFileInput} disabled={!selectedPartsFile || isImportingParts}>
-                    Clear Selection
+                  <Button variant="outline" size="sm" onClick={resetPartsFileInput} disabled={!selectedPartsFile || isImportingParts}>
+                    Clear
                   </Button>
                 </div>
-                <Button onClick={handlePartsImport} disabled={isImportingParts || !selectedPartsFile}>
+                
+                <Button onClick={handlePartsImport} disabled={isImportingParts || !selectedPartsFile} className="w-full">
                   {isImportingParts ? (
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <UploadCloud className="mr-2 h-4 w-4" />
                   )}
-                  {isImportingParts ? 'Importing...' : 'Import Master Parts'}
+                  {isImportingParts ? 'Importing...' : 'Import Parts'}
                 </Button>
               </div>
               
