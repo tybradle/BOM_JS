@@ -37,6 +37,9 @@ db/custom.db.*
 temp/
 test-parts-small.xml
 
+# sample files
+Samples/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

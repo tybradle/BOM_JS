@@ -164,14 +164,25 @@ export function SharedHeader() {
                         onChange={(e) => setProjectSearch(e.target.value)}
                         className="w-full sm:w-80"
                       />
-                      <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
+                      <Dialog open={isCreateProjectOpen} onOpenChange={(open) => {
+                        setIsCreateProjectOpen(open)
+                        // Reset form when dialog closes
+                        if (!open) {
+                          setNewProject({ 
+                            projectNumber: '', 
+                            packageName: '', 
+                            name: '', 
+                            description: '' 
+                          })
+                        }
+                      }}>
                         <DialogTrigger asChild>
                           <Button>
                             <Plus className="w-4 h-4 mr-2" />
                             New Project
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md">
+                        <DialogContent className="max-w-md" key={isCreateProjectOpen ? 'create-open' : 'create-closed'}>
                           <DialogHeader>
                             <DialogTitle>Create New Project</DialogTitle>
                             <DialogDescription>
@@ -187,6 +198,7 @@ export function SharedHeader() {
                                   value={newProject.projectNumber}
                                   onChange={(e) => setNewProject({ ...newProject, projectNumber: e.target.value })}
                                   placeholder="e.g., PRJ-001"
+                                  autoFocus
                                 />
                               </div>
                               <div>
