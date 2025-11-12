@@ -30,6 +30,7 @@ npm run electron-pack
 - **Import/Export**: Support for CSV, JSON, and XML formats
 - **Search & Filter**: Advanced search and filtering capabilities
 - **Bulk Operations**: Select and modify multiple items at once
+- **QR Code Labels**: Generate thermal printer labels for warehouse bin management
 
 ### Technical Features
 - **Local Database**: SQLite with Prisma ORM for data persistence
@@ -265,12 +266,29 @@ npm run db:reset
    - **CSV**: Spreadsheet-compatible format
 2. File downloads automatically
 
+### QR Code Labels
+1. **Access Labels**: Click "Labels" button in Project Manager or navigate directly to `/labels/[projectId]`
+2. **Sync from Project**: Click "Sync from Project" to auto-populate Kit strings from BOM locations
+3. **Edit Labels**: Click any cell to edit inline. Fill in:
+   - Building Code: Building number (1, 2, etc.)
+   - Bin Number: Rack/bin location (45A, 12B, etc.)
+   - Category: Panel (E) or Field (F)
+   - Description: Label description
+   - Build QTY: Quantity to build
+4. **Generate QR Codes**: QR codes automatically update as you edit
+   - Format: B{building}-{bin}-{package}-{category}{location}
+   - Example: B1-45A-2-E1 for Building 1, Bin 45A, Package 2, EC1 Panel
+5. **Export Labels**: Click "Export PDF" to download 4×6" thermal printer labels
+   - Labels include Project, Kit, Description, Build QTY, QR code, and Bin Location
+   - Optimized for standard thermal printers
+
 ## Database Schema
 
 ### Core Models
 - **BOMProject**: Project information and metadata
 - **BOMItem**: Individual BOM items with specifications
 - **BOMExport**: Export history and records
+- **BinLabel**: QR code labels for warehouse bin management
 - **User**: User management (extensible for authentication)
 - **Supplier**: Supplier information database
 - **Manufacturer**: Manufacturer information database
@@ -293,6 +311,14 @@ npm run db:reset
 - `POST /api/projects/[id]/items` - Add new item
 - `PATCH /api/bom-items/[id]` - Update item
 - `DELETE /api/bom-items/[id]` - Delete item
+
+### QR Code Labels
+- `GET /api/projects/[id]/labels` - Get project labels
+- `POST /api/projects/[id]/labels` - Create new label
+- `PATCH /api/projects/[id]/labels/[labelId]` - Update label
+- `DELETE /api/projects/[id]/labels/[labelId]` - Delete label
+- `POST /api/projects/[id]/labels/sync` - Sync labels from project locations
+- `POST /api/projects/[id]/labels/export-pdf` - Export 4×6" thermal PDF labels
 
 ### Import/Export
 - `POST /api/projects/[id]/export` - Export project data
@@ -453,6 +479,8 @@ npm run test-db-archives
 │   │   ├── editable-bom-table.tsx    # Excel-like table component
 │   │   ├── ImportPreviewDialog.tsx    # Import preview functionality
 │   │   ├── ExportDialog.tsx           # Export functionality
+│   │   ├── LabelWorksheetTable.tsx   # Label worksheet component
+│   │   ├── LabelPreviewDialog.tsx    # Label preview component
 │   │   ├── DatabaseToolsDialog.tsx    # Database management UI
 │   │   └── SettingsDialog.tsx        # Application settings
 │   ├── lib/             # Utilities and stores

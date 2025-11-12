@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { 
   Package, 
-  ArrowRight
+  ArrowRight,
+  QrCode
 } from 'lucide-react'
-import { openProjectManager } from '@/lib/header-actions'
+import { openProjectManager, openLabelGenerator } from '@/lib/header-actions'
 
 const features = [
   {
@@ -18,6 +19,14 @@ const features = [
     status: 'available',
     color: 'bg-blue-800',
     badges: ['Super Cool', 'Amazing', ]
+  },
+  {
+    title: 'Bin Label Generator',
+    description: 'Generate QR code labels for warehouse bin management with thermal printer support. 4x6 inch labels with job tracking and bin location encoding.',
+    icon: QrCode,
+    status: 'available',
+    color: 'bg-green-800',
+    badges: ['QR Codes', 'Warehouse', 'Thermal Print']
   }
 ]
 
@@ -92,7 +101,7 @@ export default function LandingPage() {
                     ))}
                   </div>
                   {feature.status === 'available' ? (
-                    <Button className="w-full" onClick={openProjectManager}>
+                    <Button className="w-full" onClick={feature.title === 'Bin Label Generator' ? openLabelGenerator : openProjectManager}>
                       Launch Tool
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

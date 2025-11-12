@@ -33,6 +33,7 @@ model BOMProject {
   items         BOMItem[]     @relation("ProjectItems")
   author        User          @relation(fields: [authorId], references: [id])
   locations     Location[]
+  binLabels     BinLabel[]
 
   @@index([status])
   @@index([authorId])
@@ -49,6 +50,7 @@ model Location {
   projectId  String
   exports    BOMExport[] @relation("LocationExports")
   items      BOMItem[]
+  binLabels  BinLabel[]
   project    BOMProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, name])
@@ -199,4 +201,26 @@ enum ExportFormat {
   JSON
   CSV
   EXCEL
+}
+
+model BinLabel {
+  id              String     @id @default(cuid())
+  projectId       String
+  locationId      String
+  projectNumber   String     // From BOMProject
+  kitString       String     // PackageName_LocationName (e.g., "Z2_EC1")
+  description     String     // User input
+  buildQty        Int        // User input
+  buildingCode    String     // User input: "1", "2"
+  rackNumber      String     // User input: "45A", "12B"
+  category        String     // "Panel" or "Field"
+  qrCodeData      String     // Computed: B1-45A-2-E1
+  binLocation     String     // Formatted: "Building 1 / Bin 45A"
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  project         BOMProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  location        Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@index([locationId])
 }

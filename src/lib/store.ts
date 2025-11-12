@@ -82,6 +82,23 @@ interface Location {
   updatedAt: string
 }
 
+export interface BinLabel {
+  id: string
+  projectNumber: string
+  kitString: string
+  description: string
+  buildQty: number
+  buildingCode: string
+  rackNumber: string
+  category: 'Panel' | 'Field'
+  qrCodeData: string
+  binLocation: string
+  projectId: string
+  locationId: string
+  createdAt: string
+  updatedAt: string
+}
+
 interface BOMStore {
   // State
   projects: BOMProject[]
@@ -89,6 +106,7 @@ interface BOMStore {
   locations: Location[]
   currentLocationId: string | null
   bomItems: BOMItem[]
+  binLabels: BinLabel[]
   loading: boolean
   error: string | null
   
@@ -133,6 +151,16 @@ interface BOMStore {
   deleteBOMItem: (itemId: string) => Promise<void>
   exportBOM: (projectId: string, format: 'XML' | 'JSON' | 'CSV') => Promise<{ content: string; filename: string }>
   importBOM: (projectId: string, items: any[], format: string) => Promise<void>
+  
+  // Label Actions
+  fetchBinLabels: (projectId: string) => Promise<void>
+  createBinLabel: (projectId: string, label: Omit<BinLabel, 'id' | 'createdAt' | 'updatedAt' | 'projectNumber' | 'qrCodeData' | 'binLocation'>) => Promise<void>
+  updateBinLabel: (projectId: string, labelId: string, updates: Partial<BinLabel>) => Promise<void>
+  deleteBinLabel: (labelId: string) => Promise<void>
+  deleteBinLabels: (labelIds: string[]) => Promise<void>
+  syncLabelsFromProject: (projectId: string) => Promise<void>
+  addLabelRows: (projectId: string, count: number) => Promise<void>
+  exportLabelsPDF: (projectId: string, labelIds: string[]) => Promise<{ content: string; filename: string; contentType: string }>
   downloadDatabaseArchive: () => Promise<{ blob: Blob; filename: string }>
   downloadDatabaseArchiveWithProgress: (onProgress?: (progress: DatabaseExportProgress) => void) => Promise<{ blob: Blob; filename: string }>
   uploadDatabaseArchive: (file: File) => Promise<DatabaseImportResult>
@@ -167,6 +195,7 @@ export const useBOMStore = create<BOMStore>()(
       locations: [],
       currentLocationId: null,
       bomItems: [],
+      binLabels: [],
       loading: false,
       error: null,
        settings: null,
@@ -183,6 +212,7 @@ export const useBOMStore = create<BOMStore>()(
       setCurrentLocationId: (locationId) => set({ currentLocationId: locationId }),
   setCurrentLocation: (locationId) => set({ currentLocationId: locationId }),
        setBOMItems: (items) => set({ bomItems: items }),
+      setBinLabels: (labels) => set({ binLabels: labels }),
        setLoading: (loading) => set({ loading }),
        setError: (error) => set({ error }),
        setSearchTerm: (term) => set({ searchTerm: term }),
@@ -890,6 +920,160 @@ export const useBOMStore = create<BOMStore>()(
         } catch (error) {
           console.error('Error resetting settings:', error)
           set({ error: error instanceof Error ? error.message : 'Failed to reset settings' })
+        }
+      },
+
+      // Label Actions
+      fetchBinLabels: async (projectId) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${projectId}/labels`)
+          if (!response.ok) throw new Error('Failed to fetch labels')
+          const labels = await response.json()
+          set({ binLabels: labels, loading: false })
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      createBinLabel: async (projectId, label) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${projectId}/labels`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(label)
+          })
+          if (!response.ok) throw new Error('Failed to create label')
+          const newLabel = await response.json()
+          set(state => ({
+            binLabels: [...state.binLabels, newLabel],
+            loading: false
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      updateBinLabel: async (projectId, labelId, updates) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${projectId}/labels/${labelId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+          })
+          if (!response.ok) throw new Error('Failed to update label')
+          const updatedLabel = await response.json()
+          set(state => ({
+            binLabels: state.binLabels.map(label =>
+              label.id === labelId ? updatedLabel : label
+            ),
+            loading: false
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      deleteBinLabel: async (labelId) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${get().currentProject?.id || ''}/labels/${labelId}`, {
+            method: 'DELETE'
+          })
+          if (!response.ok) throw new Error('Failed to delete label')
+          set(state => ({
+            binLabels: state.binLabels.filter(label => label.id !== labelId),
+            loading: false
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      deleteBinLabels: async (labelIds) => {
+        set({ loading: true, error: null })
+        try {
+          await Promise.all(
+            labelIds.map(labelId =>
+              fetch(`/api/projects/${get().currentProject?.id || ''}/labels/${labelId}`, {
+                method: 'DELETE'
+              })
+            )
+          )
+          set(state => ({
+            binLabels: state.binLabels.filter(label => !labelIds.includes(label.id)),
+            loading: false
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      syncLabelsFromProject: async (projectId): Promise<any> => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${projectId}/labels/sync`, {
+            method: 'POST'
+          })
+          if (!response.ok) throw new Error('Failed to sync labels')
+          const result = await response.json()
+          // Refresh labels after sync
+          get().fetchBinLabels(projectId)
+          return result
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      addLabelRows: async (projectId, count) => {
+        set({ loading: true, error: null })
+        try {
+          // Get first location for default or create a dummy one
+          const { locations } = get()
+          const defaultLocationId = locations.length > 0 ? locations[0].id : 'temp'
+
+          const newRows = Array.from({ length: count }, () => ({
+            projectNumber: '',
+            kitString: '',
+            description: '',
+            buildQty: 1,
+            buildingCode: '',
+            rackNumber: '',
+            category: 'Panel' as const,
+            projectId,
+            locationId: defaultLocationId
+          }))
+
+          // Create each row
+          for (const row of newRows) {
+            await get().createBinLabel(projectId, row)
+          }
+
+          // Refresh labels
+          get().fetchBinLabels(projectId)
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      exportLabelsPDF: async (projectId, labelIds) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/projects/${projectId}/labels/export-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labelIds })
+          })
+          if (!response.ok) throw new Error('Failed to export PDF')
+          const result = await response.json()
+          set({ loading: false })
+          return result
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
         }
       },
 
