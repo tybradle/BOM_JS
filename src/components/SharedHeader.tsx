@@ -10,13 +10,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { 
-  Sparkles,
   Plus,
   FolderOpen,
   Trash2,
   Calendar,
   FileText,
-  Database
+  Database,
+  Download
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
 import { DatabaseToolsDialog } from '@/components/DatabaseToolsDialog'
@@ -57,10 +57,14 @@ export function SharedHeader() {
     const unsubscribeDatabaseTools = headerActions.subscribe('openDatabaseTools', () => {
       setIsDatabaseToolsOpen(true)
     })
+    const unsubscribeLabelGenerator = headerActions.subscribe('openLabelGenerator', () => {
+      setIsProjectManagerOpen(true) // Open project manager for label generator
+    })
 
     return () => {
       unsubscribeProjectManager()
       unsubscribeDatabaseTools()
+      unsubscribeLabelGenerator()
     }
   }, [])
 
@@ -123,7 +127,7 @@ export function SharedHeader() {
           <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-gradient-to-br from-blue-450 to-blue-800 rounded-lg flex items-center justify-center">
               <Image
-                src="/ATS-logo.png"
+                src="/logo.png"
                 alt="ATS logo"
                 width={40}
                 height={28}
@@ -266,7 +270,7 @@ export function SharedHeader() {
                               className="grid grid-cols-12 gap-4 p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
                             >
                               {/* Project Name - Column 1 */}
-                              <div className="col-span-4">
+                              <div className="col-span-3">
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-medium">
                                     {project.name || `${project.projectNumber} - ${project.packageName}`}
@@ -295,7 +299,7 @@ export function SharedHeader() {
                               </div>
 
                               {/* Actions - Column 3 */}
-                              <div className="col-span-3 flex items-center justify-end gap-2">
+                              <div className="col-span-4 flex items-center justify-end gap-2 flex-wrap">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -304,6 +308,16 @@ export function SharedHeader() {
                                   <Link href={`/bom/${project.id}`} onClick={() => setIsProjectManagerOpen(false)}>
                                     <FolderOpen className="w-4 h-4 mr-1" />
                                     Open
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                >
+                                  <Link href={`/labels/${project.id}`} onClick={() => setIsProjectManagerOpen(false)}>
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Labels
                                   </Link>
                                 </Button>
                                 <Button

@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>BOM Management Framework</title>
+  <title>ATS Cool Tool</title>
   <style>
     body {
       margin: 0;
       padding: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #667eea 0%, #1f1d94 100%);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       display: flex;
       justify-content: center;
@@ -25,13 +25,19 @@
       width: 80px;
       height: 80px;
       margin: 0 auto 20px;
-      background: rgba(255, 255, 255, 0.2);
       border-radius: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 36px;
-      font-weight: bold;
+      background: rgba(255,255,255,0.06);
+      padding: 6px;
+    }
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
     }
     
     .title {
@@ -76,8 +82,10 @@
 </head>
 <body>
   <div class="splash-container">
-    <div class="logo">BOM</div>
-    <div class="title">BOM Management Framework</div>
+    <div class="logo">
+  <img src="/logo.png" alt="ATS logo">
+    </div>
+    <div class="title">BOM Support Tool Suite</div>
     <div class="subtitle">Bill of Materials Translation & Management</div>
     <div class="loader"></div>
     <div class="loading-text">Loading application...</div>
