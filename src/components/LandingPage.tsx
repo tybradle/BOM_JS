@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Package, 
+import {
+  Package,
   ArrowRight,
-  QrCode
+  QrCode,
+  Zap
 } from 'lucide-react'
-import { openProjectManager, openLabelGenerator } from '@/lib/header-actions'
+import { ProjectSelectionDialog } from '@/components/ProjectSelectionDialog'
 
 const features = [
   {
@@ -24,14 +26,25 @@ const features = [
     title: 'Bin Label Generator',
     description: 'Generate QR code labels for warehouse bin management with thermal printer support. 4x6 inch labels with job tracking and bin location encoding.',
     icon: QrCode,
-    status: 'available',
+    status: 'Beta',
     color: 'bg-green-800',
     badges: ['QR Codes', 'Warehouse', 'Thermal Print']
+  },
+  {
+    title: 'Glenair Integration',
+    description: 'Build custom Glenair connector part numbers with interactive wizard. Upload catalogs, configure specifications, and export directly to BOM projects.',
+    icon: Zap,
+    status: 'available',
+    color: 'bg-purple-800',
+    badges: ['Part Builder', 'Connector Config', 'Catalog Management']
   }
 ]
 
 export default function LandingPage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const [selectedModule, setSelectedModule] = useState<'bom' | 'labels' | null>(null)
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -101,7 +114,25 @@ export default function LandingPage() {
                     ))}
                   </div>
                   {feature.status === 'available' ? (
-                    <Button className="w-full" onClick={feature.title === 'Bin Label Generator' ? openLabelGenerator : openProjectManager}>
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        // Glenair goes directly to tool (no project required)
+                        if (feature.title === 'Glenair Integration') {
+                          router.push('/glenair')
+                          return
+                        }
+                        
+                        let selectedModuleType: 'bom' | 'labels'
+                        if (feature.title === 'Bin Label Generator') {
+                          selectedModuleType = 'labels'
+                        } else {
+                          selectedModuleType = 'bom'
+                        }
+                        setSelectedModule(selectedModuleType)
+                        setIsProjectDialogOpen(true)
+                      }}
+                    >
                       Launch Tool
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
@@ -121,6 +152,13 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Project Selection Dialog */}
+      <ProjectSelectionDialog
+        open={isProjectDialogOpen}
+        onOpenChange={setIsProjectDialogOpen}
+        selectedModule={selectedModule}
+      />
     </div>
   )
 }

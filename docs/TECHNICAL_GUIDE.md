@@ -1037,4 +1037,4 @@ setInterval(() => {
 
 ---
 
-*This document consolidates information from: implementation-roadmap.md, DIALOG_STYLE_GUIDE.md, TASK_2_2_STREAMING_PARSER.md, UPDATE_STRATEGY.md, NETWORK_UPDATE_STRATEGY.md*
+*This document consolidates information from various implementation documents now archived in HISTORY.md*

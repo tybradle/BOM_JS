@@ -33,10 +33,9 @@ console.log('Log file:', logFile)
 // Disable hardware acceleration to prevent GPU crashes
 app.disableHardwareAcceleration()
 
-// More robust development detection
-const isExplicitDev = process.env.NODE_ENV === 'development'
-const hasDevServer = fs.existsSync(path.join(__dirname, '../src'))
-const isDev = isExplicitDev || (process.env.NODE_ENV !== 'production' && hasDevServer)
+// Robust development detection using Electron's built-in check
+// app.isPackaged is true when running from packaged app (asar or unpacked)
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production'
 
 // Keep a global reference of the window object
 let mainWindow

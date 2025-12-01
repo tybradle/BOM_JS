@@ -9,14 +9,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { 
+import {
   Plus,
   FolderOpen,
   Trash2,
   Calendar,
   FileText,
   Database,
-  Download
+  Zap
 } from 'lucide-react'
 import { useBOMStore } from '@/lib/store'
 import { DatabaseToolsDialog } from '@/components/DatabaseToolsDialog'
@@ -57,14 +57,10 @@ export function SharedHeader() {
     const unsubscribeDatabaseTools = headerActions.subscribe('openDatabaseTools', () => {
       setIsDatabaseToolsOpen(true)
     })
-    const unsubscribeLabelGenerator = headerActions.subscribe('openLabelGenerator', () => {
-      setIsProjectManagerOpen(true) // Open project manager for label generator
-    })
 
     return () => {
       unsubscribeProjectManager()
       unsubscribeDatabaseTools()
-      unsubscribeLabelGenerator()
     }
   }, [])
 
@@ -127,7 +123,7 @@ export function SharedHeader() {
           <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 bg-gradient-to-br from-blue-450 to-blue-800 rounded-lg flex items-center justify-center">
               <Image
-                src="/logo.png"
+                src="/ATS-logo.png"
                 alt="ATS logo"
                 width={40}
                 height={28}
@@ -310,16 +306,7 @@ export function SharedHeader() {
                                     Open
                                   </Link>
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  asChild
-                                >
-                                  <Link href={`/labels/${project.id}`} onClick={() => setIsProjectManagerOpen(false)}>
-                                    <Download className="w-4 h-4 mr-1" />
-                                    Labels
-                                  </Link>
-                                </Button>
+
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -338,6 +325,12 @@ export function SharedHeader() {
                 </div>
               </DialogContent>
             </Dialog>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/glenair">
+                <Zap className="w-4 h-4 mr-2" />
+                Glenair
+              </Link>
+            </Button>
             <DatabaseToolsDialog open={isDatabaseToolsOpen} onOpenChange={setIsDatabaseToolsOpen}>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm">

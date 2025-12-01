@@ -34,6 +34,7 @@ model BOMProject {
   author        User          @relation(fields: [authorId], references: [id])
   locations     Location[]
   binLabels     BinLabel[]
+  glenairConfigs GlenairPartConfig[]
 
   @@index([status])
   @@index([authorId])
@@ -223,4 +224,48 @@ model BinLabel {
   
   @@index([projectId])
   @@index([locationId])
+}
+
+// Glenair Integration Models
+model GlenairCatalog {
+  id          String         @id @default(cuid())
+  name        String
+  version     String
+  uploadedAt  DateTime       @default(now())
+  tables      GlenairTable[]
+  
+  @@index([name])
+}
+
+model GlenairTable {
+  id         String         @id @default(cuid())
+  catalogId  String
+  type       String         // "wire_map", "arrangement", "phm", "pin", "socket"
+  page       Int
+  headers    Json           // Column headers
+  data       Json           // Row data
+  catalog    GlenairCatalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  
+  @@index([catalogId])
+  @@index([type])
+}
+
+model GlenairPartConfig {
+  id             String     @id @default(cuid())
+  projectId      String
+  wireSystem     String     // "AWG" or "MM2"
+  wireValue      String
+  conductorCount Int
+  shellStyle     String     // "Plug (06)", "Inline Socket (01)", "Panel Mount (00)"
+  arrangement    String
+  contactSize    String
+  phmSize        String
+  partNumber     String     // Generated part number
+  contacts       Json       // Selected contacts with quantities
+  createdAt      DateTime   @default(now())
+  project        BOMProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, arrangement, wireValue])
+  @@index([projectId])
+  @@index([partNumber])
 }

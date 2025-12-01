@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,44 +9,24 @@ import Link from 'next/link'
 import { ArrowLeft, Plus, FolderOpen } from 'lucide-react'
 import { openProjectManager } from '@/lib/header-actions'
 
-export default function BOMRedirect() {
+export default function LabelsRedirect() {
   const router = useRouter()
   const { projects, createProject } = useBOMStore()
-
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const cardRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    // If there are projects, don't auto-redirect - let user choose
-    // If no projects, they can create one from the UI
-  }, [projects, router])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const handleResize = () => {
-      // Resize handling removed for production
-    }
-
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [])
 
   const handleCreateProject = async () => {
     const projectNumber = `PRJ-${Date.now()}`
     const packageName = 'New Project'
 
-    await createProject({
+    const createdProject = await createProject({
       projectNumber,
       packageName,
-      name: 'New BOM Project',
-      description: 'Created from BOM page'
+      name: 'New Label Project',
+      description: 'Created from Labels page'
     })
+
+    if (createdProject?.id) {
+      router.push(`/labels/${createdProject.id}`)
+    }
   }
 
   const handleOpenProjectManager = () => {
@@ -54,7 +34,7 @@ export default function BOMRedirect() {
   }
 
   const handleSelectProject = (projectId: string) => {
-    router.push(`/bom/${projectId}`)
+    router.push(`/labels/${projectId}`)
   }
 
   return (
@@ -70,22 +50,22 @@ export default function BOMRedirect() {
               </Link>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">BOM Management</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Bin Label Generator</h1>
               <p className="text-muted-foreground">
-                Bill of Materials management system
+                Generate QR code labels for warehouse bin management
               </p>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div ref={containerRef} className="flex items-center justify-center min-h-[300px]">
-          <Card ref={cardRef} className="max-w-xs mx-auto">
+        <div className="flex items-center justify-center min-h-[300px]">
+          <Card className="max-w-xs mx-auto">
             <CardHeader className="text-center">
-              <CardTitle>BOM Management</CardTitle>
+              <CardTitle>Bin Label Generator</CardTitle>
               <CardDescription>
                 {projects.length === 0
-                  ? 'Create your first project to get started with BOM management'
+                  ? 'Create your first project to get started with label generation'
                   : 'Select a project to work with'}
               </CardDescription>
             </CardHeader>
@@ -93,7 +73,7 @@ export default function BOMRedirect() {
               {projects.length === 0 ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground text-center">
-                    No projects found. Create your first project to start managing your bill of materials.
+                    No projects found. Create your first project to start generating bin labels.
                   </p>
                   <Button onClick={handleCreateProject} className="w-full" size="sm">
                     <Plus className="w-4 h-4 mr-2" />

@@ -1,0 +1,9 @@
+{
+  "name": "Glenair Series 80",
+  "version": "2024.1",
+  "description": "Default Glenair connector catalog with contact arrangements, pin/socket specifications, and wire compatibility data",
+  "source": "Glenair Extractor - all_validated_tables.json",
+  "transformedAt": "2025-11-27T21:34:31.198Z",
+  "tableCount": 7,
+  "format": "bom-js-v1"
+}

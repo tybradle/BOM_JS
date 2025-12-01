@@ -629,8 +629,8 @@ git push origin v1.0.0
 
 ### Scripts
 - `scripts/sprint4-task1.ps1` - Automated build
-- `scripts/sprint4-task2.ps1` - Package verification
-- `scripts/test-sprint3.ps1` - Testing validation
+- `scripts/sprint4-task2.ps1` - Package verification (removed during cleanup)
+- `scripts/test-sprint3.ps1` - Testing validation (removed during cleanup)
 
 ### Contact
 For packaging issues or questions, contact the development team.

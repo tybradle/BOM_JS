@@ -22,6 +22,7 @@
     "test-db-transfer": "tsx scripts/test-db-transfer.ts",
     "test-db-archives": "tsx scripts/test-db-archives.ts",
     "test-local": "node scripts/test-local.js",
+    "glenair:update-catalog": "node scripts/transform-glenair-catalog.js",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3002 && electron .\"",
     "electron-local": "npm run build && cross-env NODE_ENV=production electron .",
@@ -66,7 +67,8 @@
       "prisma/schema.prisma",
       "package.json",
       "next.config.js",
-      ".env"
+      ".env",
+      "src/data/**/*"
     ],
     "asarUnpack": [
       "**/@prisma/client/**",

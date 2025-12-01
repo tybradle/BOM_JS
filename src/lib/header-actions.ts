@@ -1,6 +1,6 @@
 // Event-based system to trigger header actions from anywhere in the app
 
-type HeaderAction = 'openProjectManager' | 'openDatabaseTools' | 'openLabelGenerator'
+type HeaderAction = 'openProjectManager' | 'openDatabaseTools'
 
 class HeaderActionsManager {
   private listeners: Map<HeaderAction, Set<() => void>> = new Map()
@@ -27,4 +27,3 @@ export const headerActions = new HeaderActionsManager()
 // Helper functions for common actions
 export const openProjectManager = () => headerActions.trigger('openProjectManager')
 export const openDatabaseTools = () => headerActions.trigger('openDatabaseTools')
-export const openLabelGenerator = () => headerActions.trigger('openLabelGenerator')

@@ -4,6 +4,15 @@ import type { DatabaseArchiveEntry } from '@/types/database'
 import type { AppSettings } from '@/types/settings'
 import { DEFAULT_SETTINGS, mergeWithDefaults } from '@/types/settings'
 import { applyTheme, cleanupThemeListeners } from '@/lib/theme'
+import { STANDARD_WIRE_SIZES } from './glenair/wire-gauge'
+import type { 
+  WireSystem, 
+  Contact, 
+  ContactResult, 
+  ArrangementOption,
+  PartBuilderResult,
+  ContactSizeInfo
+} from '@/types/glenair'
 
 export interface BOMItem {
   id: string
@@ -99,6 +108,53 @@ export interface BinLabel {
   updatedAt: string
 }
 
+// Glenair Types
+export interface GlenairCatalog {
+  id: string
+  name: string
+  version: string
+  uploadedAt: string
+  tableCount: number
+}
+
+export interface GlenairPartConfig {
+  id: string
+  projectId: string
+  wireSystem: WireSystem
+  wireValue: string
+  conductorCount: number
+  shellStyle: string
+  arrangement: string
+  contactSize: string
+  phmSize: string
+  partNumber: string
+  contacts: Contact[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WireGaugeSelection {
+  system: WireSystem
+  wireValue: string
+  conductorCount: number
+}
+
+export interface GlenairBuilderState {
+  step: number
+  wireSelection: WireGaugeSelection | null
+  availableWireSizes: { awg: string[], mm2: string[] }
+  availableContactSizes: ContactSizeInfo[]
+  contactSize: string | null
+  availableContacts: ContactResult | null
+  arrangement: string | null
+  availableArrangements: ArrangementOption[]
+  isLoadingArrangements: boolean
+  arrangementError: string | null
+  shellStyle: string | null
+  selectedContacts: Contact[]
+  result: PartBuilderResult | null
+}
+
 interface BOMStore {
   // State
   projects: BOMProject[]
@@ -122,6 +178,12 @@ interface BOMStore {
   // Export Progress State
   exportProgress: DatabaseExportProgress | null
   
+  // Glenair State
+  glenairCatalogs: GlenairCatalog[]
+  currentCatalogId: string | null
+  glenairPartConfigs: GlenairPartConfig[]
+  glenairBuilder: GlenairBuilderState
+  
   // Setters
   setProjects: (projects: BOMProject[]) => void
   setCurrentProject: (project: BOMProject | null) => void
@@ -136,10 +198,18 @@ interface BOMStore {
   setEditingCell: (cell: { itemId: string; field: string } | null) => void
   setExportProgress: (progress: DatabaseExportProgress | null) => void
   
+  // Glenair Setters
+  setGlenairCatalogs: (catalogs: GlenairCatalog[]) => void
+  setCurrentCatalogId: (catalogId: string | null) => void
+  setGlenairPartConfigs: (configs: GlenairPartConfig[]) => void
+  setGlenairBuilderStep: (step: number) => void
+  setGlenairBuilderState: (state: Partial<GlenairBuilderState>) => void
+  resetGlenairBuilder: () => void
+  
   // API Actions
   fetchProjects: () => Promise<void>
   fetchProject: (projectId: string) => Promise<void>
-  createProject: (data: { projectNumber: string; packageName: string; name?: string; description?: string; authorId?: string }) => Promise<void>
+  createProject: (data: { projectNumber: string; packageName: string; name?: string; description?: string; authorId?: string }) => Promise<BOMProject>
   deleteProject: (projectId: string) => Promise<void>
   fetchLocations: (projectId: string) => Promise<void>
   createLocation: (projectId: string, name: string) => Promise<void>
@@ -164,6 +234,17 @@ interface BOMStore {
   downloadDatabaseArchive: () => Promise<{ blob: Blob; filename: string }>
   downloadDatabaseArchiveWithProgress: (onProgress?: (progress: DatabaseExportProgress) => void) => Promise<{ blob: Blob; filename: string }>
   uploadDatabaseArchive: (file: File) => Promise<DatabaseImportResult>
+  
+  // Glenair API Actions
+  fetchGlenairCatalogs: () => Promise<void>
+  uploadGlenairCatalog: (name: string, version: string, tables: any[]) => Promise<GlenairCatalog>
+  deleteGlenairCatalog: (catalogId: string) => Promise<void>
+  fetchGlenairWireSizes: (catalogId: string) => Promise<{ awg: string[], mm2: string[] }>
+  fetchGlenairContactSizes: (catalogId: string, wireValue: string, wireSystem: WireSystem) => Promise<ContactSizeInfo[]>
+  fetchGlenairContacts: (catalogId: string, wireValue: string, wireSystem: WireSystem, contactSize: string) => Promise<ContactResult>
+  fetchGlenairArrangements: (catalogId: string, conductorCount: number, contactSize: string) => Promise<ArrangementOption[]>
+  buildGlenairPart: (config: any) => Promise<PartBuilderResult>
+  addGlenairToBom: (projectId: string, partNumber: string, contacts: Contact[], locationId?: string) => Promise<void>
   
   // Database archive management
   launchPrismaStudio: () => Promise<{ url: string }>
@@ -205,6 +286,26 @@ export const useBOMStore = create<BOMStore>()(
        editingCell: null,
        exportProgress: null,
       
+      // Glenair Initial State
+      glenairCatalogs: [],
+      currentCatalogId: null,
+      glenairPartConfigs: [],
+      glenairBuilder: {
+        step: 1,
+        wireSelection: null,
+        availableWireSizes: { awg: [], mm2: [] },
+        availableContactSizes: [],
+        contactSize: null,
+        availableContacts: null,
+        arrangement: null,
+        availableArrangements: [],
+        isLoadingArrangements: false,
+        arrangementError: null,
+        shellStyle: null,
+        selectedContacts: [],
+        result: null
+      },
+      
       // Setters
       setProjects: (projects) => set({ projects }),
       setCurrentProject: (project) => set({ currentProject: project }),
@@ -219,6 +320,32 @@ export const useBOMStore = create<BOMStore>()(
        setExportProgress: (progress) => set({ exportProgress: progress }),
       setSelectedItems: (items) => set({ selectedItems: items }),
       setEditingCell: (cell) => set({ editingCell: cell }),
+      
+      // Glenair Setters
+      setGlenairCatalogs: (catalogs) => set({ glenairCatalogs: catalogs }),
+      setCurrentCatalogId: (catalogId) => set({ currentCatalogId: catalogId }),
+      setGlenairPartConfigs: (configs) => set({ glenairPartConfigs: configs }),
+      setGlenairBuilderStep: (step) => set(state => ({ 
+        glenairBuilder: { ...state.glenairBuilder, step } 
+      })),
+      setGlenairBuilderState: (updates) => set(state => ({
+        glenairBuilder: { ...state.glenairBuilder, ...updates }
+      })),
+      resetGlenairBuilder: () => set({
+        glenairBuilder: {
+          step: 1,
+          wireSelection: null,
+          availableWireSizes: { awg: [], mm2: [] },
+          availableContactSizes: [],
+          contactSize: null,
+          availableContacts: null,
+          arrangement: null,
+          availableArrangements: [],
+          shellStyle: null,
+          selectedContacts: [],
+          result: null
+        }
+      }),
       
       // API Actions
       fetchProjects: async () => {
@@ -275,8 +402,10 @@ export const useBOMStore = create<BOMStore>()(
             projects: [mappedProject, ...state.projects],
             loading: false 
           }))
+          return mappedProject
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
         }
       },
 
@@ -1070,7 +1199,257 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to export PDF')
           const result = await response.json()
           set({ loading: false })
+        return result
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      // Glenair API Actions
+      fetchGlenairCatalogs: async () => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch('/api/glenair/catalog')
+          if (!response.ok) throw new Error('Failed to fetch Glenair catalogs')
+          const data = await response.json()
+          set({ glenairCatalogs: data.catalogs || [], loading: false })
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        }
+      },
+
+      uploadGlenairCatalog: async (name, version, tables) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch('/api/glenair/catalog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, version, tables })
+          })
+          if (!response.ok) throw new Error('Failed to upload Glenair catalog')
+          const data = await response.json()
+          const newCatalog: GlenairCatalog = {
+            id: data.catalog.id,
+            name: data.catalog.name,
+            version: data.catalog.version,
+            uploadedAt: data.catalog.uploadedAt,
+            tableCount: data.tableCount
+          }
+          set(state => ({
+            glenairCatalogs: [newCatalog, ...state.glenairCatalogs],
+            currentCatalogId: newCatalog.id,
+            loading: false
+          }))
+          return newCatalog
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      deleteGlenairCatalog: async (catalogId) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/glenair/catalog/${catalogId}`, {
+            method: 'DELETE'
+          })
+          if (!response.ok) throw new Error('Failed to delete Glenair catalog')
+          set(state => ({
+            glenairCatalogs: state.glenairCatalogs.filter(c => c.id !== catalogId),
+            currentCatalogId: state.currentCatalogId === catalogId ? null : state.currentCatalogId,
+            loading: false
+          }))
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      fetchGlenairWireSizes: async (catalogId) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch(`/api/glenair/wire-sizes?catalogId=${catalogId}`)
+          if (!response.ok) throw new Error('Failed to fetch wire sizes')
+          const data = await response.json()
+          const apiWireSizes = { awg: data.wireSizes?.awg || [], mm2: data.wireSizes?.mm2 || [] }
+          
+          // Use fallback standard wire sizes if API returns empty arrays
+          const wireSizes = {
+            awg: apiWireSizes.awg.length > 0 ? apiWireSizes.awg : STANDARD_WIRE_SIZES.awg,
+            mm2: apiWireSizes.mm2.length > 0 ? apiWireSizes.mm2 : STANDARD_WIRE_SIZES.mm2
+          }
+          
+          set(state => ({
+            glenairBuilder: { ...state.glenairBuilder, availableWireSizes: wireSizes },
+            loading: false
+          }))
+          return wireSizes
+        } catch (error) {
+          // On error, use fallback standard wire sizes
+          const fallbackWireSizes = { ...STANDARD_WIRE_SIZES }
+          set(state => ({
+            glenairBuilder: { ...state.glenairBuilder, availableWireSizes: fallbackWireSizes },
+            error: error instanceof Error ? error.message : 'Unknown error',
+            loading: false
+          }))
+          return fallbackWireSizes
+        }
+      },
+
+      fetchGlenairContactSizes: async (catalogId, wireValue, wireSystem) => {
+        set({ loading: true, error: null })
+        try {
+          const params = new URLSearchParams({
+            catalogId,
+            wireValue,
+            wireSystem
+          })
+          const response = await fetch(`/api/glenair/contact-sizes?${params}`)
+          if (!response.ok) throw new Error('Failed to fetch compatible contact sizes')
+          const data = await response.json()
+          const contactSizes: ContactSizeInfo[] = data.contactSizes || []
+          set(state => ({
+            glenairBuilder: { ...state.glenairBuilder, availableContactSizes: contactSizes },
+            loading: false
+          }))
+          return contactSizes
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      fetchGlenairContacts: async (catalogId, wireValue, wireSystem, contactSize) => {
+        set({ loading: true, error: null })
+        try {
+          const params = new URLSearchParams({
+            catalogId,
+            wireValue,
+            wireSystem,
+            contactSize
+          })
+          const response = await fetch(`/api/glenair/contacts?${params}`)
+          if (!response.ok) throw new Error('Failed to fetch Glenair contacts')
+          const data = await response.json()
+          const result: ContactResult = { pins: data.pins || [], sockets: data.sockets || [] }
+          set(state => ({
+            glenairBuilder: { ...state.glenairBuilder, availableContacts: result },
+            loading: false
+          }))
           return result
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      fetchGlenairArrangements: async (catalogId, conductorCount, contactSize) => {
+        console.log('🔍 [DEBUG] fetchGlenairArrangements called with:', { catalogId, conductorCount, contactSize })
+        
+        // Set loading state for arrangements specifically
+        set(state => ({
+          glenairBuilder: { 
+            ...state.glenairBuilder, 
+            isLoadingArrangements: true, 
+            arrangementError: null,
+            // Don't clear availableArrangements immediately to avoid flicker
+          }
+        }))
+        
+        try {
+          const params = new URLSearchParams({
+            catalogId,
+            conductorCount: String(conductorCount),
+            contactSize
+          })
+          console.log('🔍 [DEBUG] Fetching arrangements with params:', params.toString())
+          
+          const response = await fetch(`/api/glenair/arrangements?${params}`)
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('🔍 [DEBUG] Arrangement fetch failed:', response.status, errorText)
+            throw new Error(`Failed to fetch Glenair arrangements: ${response.status} ${errorText}`)
+          }
+          
+          const data = await response.json()
+          console.log('🔍 [DEBUG] Arrangement response data:', data)
+          
+          const arrangements: ArrangementOption[] = data.arrangements || []
+          console.log('🔍 [DEBUG] Parsed arrangements:', arrangements)
+          
+          // Auto-select if only one arrangement exists
+          const autoSelectedArrangement = arrangements.length === 1 ? arrangements[0].arrangement : null
+          if (autoSelectedArrangement) {
+            console.log('🔍 [DEBUG] Auto-selecting single arrangement:', autoSelectedArrangement)
+          }
+          
+          set(state => ({
+            glenairBuilder: { 
+              ...state.glenairBuilder, 
+              availableArrangements: arrangements,
+              arrangement: autoSelectedArrangement || state.glenairBuilder.arrangement, // Keep existing if no auto-select
+              isLoadingArrangements: false,
+              arrangementError: null
+            }
+          }))
+          
+          return arrangements
+        } catch (error) {
+          console.error('🔍 [DEBUG] Error in fetchGlenairArrangements:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          
+          set(state => ({
+            glenairBuilder: { 
+              ...state.glenairBuilder, 
+              isLoadingArrangements: false,
+              arrangementError: errorMessage,
+              availableArrangements: [] // Clear arrangements on error
+            }
+          }))
+          
+          throw error
+        }
+      },
+
+      buildGlenairPart: async (config) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch('/api/glenair/build', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+          })
+          if (!response.ok) throw new Error('Failed to build Glenair part')
+          const result: PartBuilderResult = await response.json()
+          set(state => ({
+            glenairBuilder: { ...state.glenairBuilder, result },
+            loading: false
+          }))
+          return result
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+          throw error
+        }
+      },
+
+      addGlenairToBom: async (projectId, partNumber, contacts, locationId) => {
+        set({ loading: true, error: null })
+        try {
+          const response = await fetch('/api/glenair/add-to-bom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId,
+              partNumber,
+              selectedContacts: contacts,
+              locationId
+            })
+          })
+          if (!response.ok) throw new Error('Failed to add Glenair part to BOM')
+          // Refresh BOM items
+          await get().fetchBOMItems(projectId, locationId)
+          set({ loading: false })
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
           throw error

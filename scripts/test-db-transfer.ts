@@ -7,7 +7,6 @@ import { resolveDatabasePath } from '@/lib/database/paths'
 import { validateDatabaseSchema } from '@/lib/database/validation'
 
 interface TableCounts {
-  users: number
   projects: number
   locations: number
   items: number
@@ -23,14 +22,13 @@ async function collectCounts(databasePath: string): Promise<TableCounts> {
   })
 
   try {
-    const [users, projects, locations, items] = await Promise.all([
-      client.user.count(),
+    const [projects, locations, items] = await Promise.all([
       client.bOMProject.count(),
       client.location.count(),
       client.bOMItem.count()
     ])
 
-    return { users, projects, locations, items }
+    return { projects, locations, items }
   } finally {
     await client.$disconnect()
   }

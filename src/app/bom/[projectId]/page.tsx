@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { 
-  Plus, 
-  Download, 
-  Upload, 
-  FileText, 
+import {
+  Plus,
+  Download,
+  Upload,
+  FileText,
   Database,
   Settings,
   Search,
@@ -23,7 +23,8 @@ import {
   RefreshCw,
   FileSpreadsheet,
   ArrowLeft,
-  FolderOpen
+  FolderOpen,
+  Zap
 } from 'lucide-react'
 import Link from 'next/link'
 import { useBOMStore } from '@/lib/store'
@@ -405,6 +406,12 @@ export default function BOMProjectPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/glenair/${projectId}`}>
+                <Zap className="w-4 h-4 mr-2" />
+                Build Glenair Part
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
