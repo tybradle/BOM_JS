@@ -341,6 +341,8 @@ export const useBOMStore = create<BOMStore>()(
           availableContacts: null,
           arrangement: null,
           availableArrangements: [],
+          isLoadingArrangements: false,
+          arrangementError: null,
           shellStyle: null,
           selectedContacts: [],
           result: null

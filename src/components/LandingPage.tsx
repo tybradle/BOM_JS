@@ -9,7 +9,8 @@ import {
   Package,
   ArrowRight,
   QrCode,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react'
 import { ProjectSelectionDialog } from '@/components/ProjectSelectionDialog'
 
@@ -37,6 +38,14 @@ const features = [
     status: 'available',
     color: 'bg-purple-800',
     badges: ['Part Builder', 'Connector Config', 'Catalog Management']
+  },
+  {
+    title: 'AutoCAD BOM Extractor',
+    description: 'Extract BOMs from AutoCAD PDF drawings using AI-powered OCR. Upload PDFs, review extracted data with confidence scores, and export to Excel.',
+    icon: FileText,
+    status: 'available',
+    color: 'bg-orange-800',
+    badges: ['AI-Powered', 'PDF OCR', 'Excel Export']
   }
 ]
 
@@ -117,9 +126,13 @@ export default function LandingPage() {
                     <Button
                       className="w-full"
                       onClick={() => {
-                        // Glenair goes directly to tool (no project required)
+                        // Standalone tools go directly (no project required)
                         if (feature.title === 'Glenair Integration') {
                           router.push('/glenair')
+                          return
+                        }
+                        if (feature.title === 'AutoCAD BOM Extractor') {
+                          router.push('/autocad-extractor')
                           return
                         }
                         

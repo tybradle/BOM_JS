@@ -338,13 +338,13 @@ export function PartNumberBuilder({
       )}
 
       {/* Debug Panel - Remove in production */}
+      {/* Debug section temporarily disabled - needs variable fixes
       {process.env.NODE_ENV === 'development' && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-4">
             <h4 className="font-semibold text-sm mb-2">Debug Info:</h4>
             <div className="text-xs space-y-1 font-mono">
-              <div>Step: {step}</div>
-              <div>Catalog ID: {currentCatalogId || 'none'}</div>
+              <div>Catalog ID: {catalogId || 'none'}</div>
               <div>Wire Selection: {wireSelection ? `${wireSelection.wireValue} (${wireSelection.conductorCount} conductors)` : 'none'}</div>
               <div>Contact Size: {contactSize || 'none'}</div>
               <div>Arrangement: {arrangement || 'none'}</div>
@@ -359,6 +359,7 @@ export function PartNumberBuilder({
           </CardContent>
         </Card>
       )}
+      */}
 
       {/* Single Sheet Form */}
       <Card>
