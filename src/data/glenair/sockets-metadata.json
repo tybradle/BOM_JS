@@ -1,0 +1,14 @@
+{
+  "name": "Glenair Series 80 - Socket Contacts",
+  "category": "sockets",
+  "version": "2024.1",
+  "description": "Socket contact specifications with wire size compatibility",
+  "source": "Glenair Extractor - Pages 291-292",
+  "pages": [
+    291,
+    292
+  ],
+  "transformedAt": "2025-12-01T21:43:55.920Z",
+  "tableCount": 2,
+  "format": "bom-js-v1"
+}

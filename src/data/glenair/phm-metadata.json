@@ -1,0 +1,13 @@
+{
+  "name": "Glenair Series 80 - PHM Table",
+  "category": "phm",
+  "version": "2024.1",
+  "description": "PHM (Potting Hub Module) sizing table for shell size to PHM size mapping",
+  "source": "Glenair Extractor - Page 172",
+  "pages": [
+    172
+  ],
+  "transformedAt": "2025-12-01T21:43:55.920Z",
+  "tableCount": 1,
+  "format": "bom-js-v1"
+}

@@ -13,6 +13,9 @@ export function categorizeTable(headers: string[], type?: string, page?: number)
   const tableType = (type || '').toLowerCase();
 
   // Check explicit type first
+  if (tableType.includes('arrangement') || tableType.includes('contact arrangements')) {
+    return 'arrangement';
+  }
   if (tableType.includes('pin/socket') || tableType.includes('contact') && tableType.includes('selection')) {
     // Separate pins and sockets based on page numbers
     if (page === 289 || page === 290) {
@@ -169,33 +172,81 @@ export function extractPinSocketMaps(tables: GlenairTable[]): {
 
 /**
  * Convert table data to DataFrame-like structure for easier processing
+ * Handles both array-of-arrays and array-of-objects data formats
  */
-export function createDataFrame(data: any[][], columns: string[]) {
+export function createDataFrame(data: any[], columns: string[]) {
+  // Detect if data is array of objects or array of arrays
+  const isObjectFormat = data.length > 0 && !Array.isArray(data[0]) && typeof data[0] === 'object';
+  
+  // Helper to find column name case-insensitively in object keys
+  const findColumnKey = (obj: any, col: string): string | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    const keys = Object.keys(obj);
+    // Exact match first
+    if (keys.includes(col)) return col;
+    // Case-insensitive match
+    const lowerCol = col.toLowerCase();
+    return keys.find(k => k.toLowerCase() === lowerCol) || null;
+  };
+
   return {
     data,
     columns,
+    isObjectFormat,
     // Helper methods similar to pandas
     iterrows: function*() {
       for (let i = 0; i < data.length; i++) {
         const row: any = {};
-        columns.forEach((col, idx) => {
-          row[col] = data[i][idx];
-        });
+        if (isObjectFormat) {
+          // Data is array of objects - access by column name
+          columns.forEach((col) => {
+            const key = findColumnKey(data[i], col);
+            row[col] = key ? data[i][key] : undefined;
+          });
+        } else {
+          // Data is array of arrays - access by index
+          columns.forEach((col, idx) => {
+            row[col] = data[i][idx];
+          });
+        }
         yield { index: i, row };
       }
     },
     get: (column: string) => {
-      const colIndex = columns.findIndex(col => col.toLowerCase() === column.toLowerCase());
-      return colIndex >= 0 ? data.map(row => row[colIndex]) : [];
+      const lowerColumn = column.toLowerCase();
+      if (isObjectFormat) {
+        // Data is array of objects - find the matching key in each object
+        return data.map(obj => {
+          const key = findColumnKey(obj, column);
+          return key ? obj[key] : undefined;
+        });
+      } else {
+        // Data is array of arrays - use column index
+        const colIndex = columns.findIndex(col => col.toLowerCase() === lowerColumn);
+        return colIndex >= 0 ? data.map(row => row[colIndex]) : [];
+      }
     },
     toObjects: () => {
-      return data.map(row => {
-        const obj: any = {};
-        columns.forEach((col, idx) => {
-          obj[col] = row[idx];
+      if (isObjectFormat) {
+        // Already objects, but normalize column names
+        return data.map(obj => {
+          const normalized: any = {};
+          columns.forEach((col) => {
+            const key = findColumnKey(obj, col);
+            normalized[col] = key ? obj[key] : undefined;
+          });
+          return normalized;
         });
-        return obj;
-      });
+      } else {
+        // Convert arrays to objects
+        return data.map(row => {
+          const obj: any = {};
+          columns.forEach((col, idx) => {
+            obj[col] = row[idx];
+          });
+          return obj;
+        });
+      }
     }
   };
 }

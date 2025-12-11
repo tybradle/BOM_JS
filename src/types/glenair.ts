@@ -50,6 +50,7 @@ export interface GlenairPartConfig {
 // Utility types for API responses
 export interface Contact {
   part_number: string;
+  contact_size?: string;
   awg_range?: string;
   mm2_range?: string;
   quantity: number;

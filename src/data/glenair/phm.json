@@ -1,0 +1,101 @@
+{
+  "tables": [
+    {
+      "page": 172,
+      "headers": [
+        "Shell Size",
+        "PHM Size",
+        "ØB\nMin. - Max.",
+        "L\nMax.",
+        "ØQ\n±0.2"
+      ],
+      "data": [
+        {
+          "Shell Size": "10 SL",
+          "PHM Size": "9",
+          "ØB\nMin. - Max.": "2-9",
+          "L\nMax.": "74.0",
+          "ØQ\n±0.2": "22.6"
+        },
+        {
+          "Shell Size": "14 S",
+          "PHM Size": "11",
+          "ØB\nMin. - Max.": "2-11",
+          "L\nMax.": "88.5",
+          "ØQ\n±0.2": "29.0"
+        },
+        {
+          "Shell Size": "16 S",
+          "PHM Size": "11",
+          "ØB\nMin. - Max.": "2-11",
+          "L\nMax.": "88.5",
+          "ØQ\n±0.2": "31.6"
+        },
+        {
+          "Shell Size": "16",
+          "PHM Size": "11",
+          "ØB\nMin. - Max.": "2-11",
+          "L\nMax.": "98.5",
+          "ØQ\n±0.2": "31.6"
+        },
+        {
+          "Shell Size": "18",
+          "PHM Size": "18",
+          "ØB\nMin. - Max.": "2-16.5",
+          "L\nMax.": "100.5",
+          "ØQ\n±0.2": "36.2"
+        },
+        {
+          "Shell Size": "20",
+          "PHM Size": "18",
+          "ØB\nMin. - Max.": "2-16.5",
+          "L\nMax.": "101.5",
+          "ØQ\n±0.2": "39.8"
+        },
+        {
+          "Shell Size": "22",
+          "PHM Size": "18",
+          "ØB\nMin. - Max.": "2-16.5",
+          "L\nMax.": "101.5",
+          "ØQ\n±0.2": "43.0"
+        },
+        {
+          "Shell Size": "24",
+          "PHM Size": "22",
+          "ØB\nMin. - Max.": "15-20",
+          "L\nMax.": "104.5",
+          "ØQ\n±0.2": "46.4"
+        },
+        {
+          "Shell Size": "28",
+          "PHM Size": "22",
+          "ØB\nMin. - Max.": "15-20",
+          "L\nMax.": "109.0",
+          "ØQ\n±0.2": "53.0"
+        },
+        {
+          "Shell Size": "32",
+          "PHM Size": "24",
+          "ØB\nMin. - Max.": "19-24",
+          "L\nMax.": "112.0",
+          "ØQ\n±0.2": "60.0"
+        },
+        {
+          "Shell Size": "36",
+          "PHM Size": "35",
+          "ØB\nMin. - Max.": "23-35",
+          "L\nMax.": "118.0",
+          "ØQ\n±0.2": "66.2"
+        },
+        {
+          "Shell Size": "40",
+          "PHM Size": "35",
+          "ØB\nMin. - Max.": "23-35",
+          "L\nMax.": "118.0",
+          "ØQ\n±0.2": "72.3"
+        }
+      ],
+      "type": "Other"
+    }
+  ]
+}

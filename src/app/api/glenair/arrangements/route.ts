@@ -74,7 +74,17 @@ export async function GET(request: NextRequest) {
     
     for (const table of catalog.tables) {
       const headers = table.headers as string[]
-      const data = table.data as any[][]
+      const rawData = table.data as any[]
+      
+      // Convert object rows to array rows if needed
+      const data = rawData.map(row => {
+        if (Array.isArray(row)) {
+          return row
+        }
+        // Row is an object, convert to array using headers order
+        return headers.map(h => row[h] ?? '')
+      })
+      
       arrangementData.push(...data)
       if (arrangementColumns.length === 0) {
         arrangementColumns.push(...headers)

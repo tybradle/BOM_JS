@@ -4,11 +4,11 @@ import type { DatabaseArchiveEntry } from '@/types/database'
 import type { AppSettings } from '@/types/settings'
 import { DEFAULT_SETTINGS, mergeWithDefaults } from '@/types/settings'
 import { applyTheme, cleanupThemeListeners } from '@/lib/theme'
-import { STANDARD_WIRE_SIZES } from './glenair/wire-gauge'
-import type { 
-  WireSystem, 
-  Contact, 
-  ContactResult, 
+import { STANDARD_WIRE_SIZES } from '@/lib/glenair/wire-gauge'
+import type {
+  WireSystem,
+  Contact,
+  ContactResult,
   ArrangementOption,
   PartBuilderResult,
   ContactSizeInfo
@@ -165,25 +165,25 @@ interface BOMStore {
   binLabels: BinLabel[]
   loading: boolean
   error: string | null
-  
+
   // Settings State
   settings: AppSettings | null
   settingsLoaded: boolean
-  
+
   // UI State
   searchTerm: string
   selectedItems: string[]
   editingCell: { itemId: string; field: string } | null
-  
+
   // Export Progress State
   exportProgress: DatabaseExportProgress | null
-  
+
   // Glenair State
   glenairCatalogs: GlenairCatalog[]
   currentCatalogId: string | null
   glenairPartConfigs: GlenairPartConfig[]
   glenairBuilder: GlenairBuilderState
-  
+
   // Setters
   setProjects: (projects: BOMProject[]) => void
   setCurrentProject: (project: BOMProject | null) => void
@@ -197,7 +197,7 @@ interface BOMStore {
   setSelectedItems: (items: string[]) => void
   setEditingCell: (cell: { itemId: string; field: string } | null) => void
   setExportProgress: (progress: DatabaseExportProgress | null) => void
-  
+
   // Glenair Setters
   setGlenairCatalogs: (catalogs: GlenairCatalog[]) => void
   setCurrentCatalogId: (catalogId: string | null) => void
@@ -205,7 +205,7 @@ interface BOMStore {
   setGlenairBuilderStep: (step: number) => void
   setGlenairBuilderState: (state: Partial<GlenairBuilderState>) => void
   resetGlenairBuilder: () => void
-  
+
   // API Actions
   fetchProjects: () => Promise<void>
   fetchProject: (projectId: string) => Promise<void>
@@ -221,7 +221,7 @@ interface BOMStore {
   deleteBOMItem: (itemId: string) => Promise<void>
   exportBOM: (projectId: string, format: 'XML' | 'JSON' | 'CSV') => Promise<{ content: string; filename: string }>
   importBOM: (projectId: string, items: any[], format: string) => Promise<void>
-  
+
   // Label Actions
   fetchBinLabels: (projectId: string) => Promise<void>
   createBinLabel: (projectId: string, label: Omit<BinLabel, 'id' | 'createdAt' | 'updatedAt' | 'projectNumber' | 'qrCodeData' | 'binLocation'>) => Promise<void>
@@ -234,18 +234,18 @@ interface BOMStore {
   downloadDatabaseArchive: () => Promise<{ blob: Blob; filename: string }>
   downloadDatabaseArchiveWithProgress: (onProgress?: (progress: DatabaseExportProgress) => void) => Promise<{ blob: Blob; filename: string }>
   uploadDatabaseArchive: (file: File) => Promise<DatabaseImportResult>
-  
+
   // Glenair API Actions
   fetchGlenairCatalogs: () => Promise<void>
   uploadGlenairCatalog: (name: string, version: string, tables: any[]) => Promise<GlenairCatalog>
   deleteGlenairCatalog: (catalogId: string) => Promise<void>
   fetchGlenairWireSizes: (catalogId: string) => Promise<{ awg: string[], mm2: string[] }>
   fetchGlenairContactSizes: (catalogId: string, wireValue: string, wireSystem: WireSystem) => Promise<ContactSizeInfo[]>
-  fetchGlenairContacts: (catalogId: string, wireValue: string, wireSystem: WireSystem, contactSize: string) => Promise<ContactResult>
+  fetchGlenairContacts: (catalogId: string, wireValue: string, wireSystem: WireSystem) => Promise<ContactResult>
   fetchGlenairArrangements: (catalogId: string, conductorCount: number, contactSize: string) => Promise<ArrangementOption[]>
   buildGlenairPart: (config: any) => Promise<PartBuilderResult>
   addGlenairToBom: (projectId: string, partNumber: string, contacts: Contact[], locationId?: string) => Promise<void>
-  
+
   // Database archive management
   launchPrismaStudio: () => Promise<{ url: string }>
   fetchDatabaseArchives: () => Promise<DatabaseArchiveEntry[]>
@@ -254,12 +254,12 @@ interface BOMStore {
   deleteDatabaseArchive: (archivePath: string) => Promise<{ success: boolean; message: string; deletedPath: string }>
   restoreDatabaseArchive: (archivePath: string, createBackup?: boolean) => Promise<{ success: boolean; message: string; backupPath?: string; restoredFrom: string }>
   uploadMasterParts: (file: File, clearExisting?: boolean) => Promise<MasterPartsImportResult>
-  
+
   // Settings Actions
   fetchSettings: () => Promise<void>
   updateSettings: (updates: Partial<AppSettings>) => Promise<void>
   resetSettings: () => Promise<void>
-  
+
   // Excel-like Actions
   updateCell: (itemId: string, field: string, value: any) => void
   bulkUpdate: (itemIds: string[], updates: Partial<BOMItem>) => void
@@ -279,13 +279,13 @@ export const useBOMStore = create<BOMStore>()(
       binLabels: [],
       loading: false,
       error: null,
-       settings: null,
-       settingsLoaded: false,
-       searchTerm: '',
-       selectedItems: [],
-       editingCell: null,
-       exportProgress: null,
-      
+      settings: null,
+      settingsLoaded: false,
+      searchTerm: '',
+      selectedItems: [],
+      editingCell: null,
+      exportProgress: null,
+
       // Glenair Initial State
       glenairCatalogs: [],
       currentCatalogId: null,
@@ -305,28 +305,28 @@ export const useBOMStore = create<BOMStore>()(
         selectedContacts: [],
         result: null
       },
-      
+
       // Setters
       setProjects: (projects) => set({ projects }),
       setCurrentProject: (project) => set({ currentProject: project }),
       setLocations: (locations) => set({ locations }),
       setCurrentLocationId: (locationId) => set({ currentLocationId: locationId }),
-  setCurrentLocation: (locationId) => set({ currentLocationId: locationId }),
-       setBOMItems: (items) => set({ bomItems: items }),
+      setCurrentLocation: (locationId) => set({ currentLocationId: locationId }),
+      setBOMItems: (items) => set({ bomItems: items }),
       setBinLabels: (labels) => set({ binLabels: labels }),
-       setLoading: (loading) => set({ loading }),
-       setError: (error) => set({ error }),
-       setSearchTerm: (term) => set({ searchTerm: term }),
-       setExportProgress: (progress) => set({ exportProgress: progress }),
+      setLoading: (loading) => set({ loading }),
+      setError: (error) => set({ error }),
+      setSearchTerm: (term) => set({ searchTerm: term }),
+      setExportProgress: (progress) => set({ exportProgress: progress }),
       setSelectedItems: (items) => set({ selectedItems: items }),
       setEditingCell: (cell) => set({ editingCell: cell }),
-      
+
       // Glenair Setters
       setGlenairCatalogs: (catalogs) => set({ glenairCatalogs: catalogs }),
       setCurrentCatalogId: (catalogId) => set({ currentCatalogId: catalogId }),
       setGlenairPartConfigs: (configs) => set({ glenairPartConfigs: configs }),
-      setGlenairBuilderStep: (step) => set(state => ({ 
-        glenairBuilder: { ...state.glenairBuilder, step } 
+      setGlenairBuilderStep: (step) => set(state => ({
+        glenairBuilder: { ...state.glenairBuilder, step }
       })),
       setGlenairBuilderState: (updates) => set(state => ({
         glenairBuilder: { ...state.glenairBuilder, ...updates }
@@ -348,7 +348,7 @@ export const useBOMStore = create<BOMStore>()(
           result: null
         }
       }),
-      
+
       // API Actions
       fetchProjects: async () => {
         set({ loading: true, error: null })
@@ -361,9 +361,9 @@ export const useBOMStore = create<BOMStore>()(
             ...p,
             itemCount: p._count?.items || 0
           }))
-          set({ 
+          set({
             projects,
-            loading: false 
+            loading: false
           })
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
@@ -376,15 +376,15 @@ export const useBOMStore = create<BOMStore>()(
           const response = await fetch(`/api/projects/${projectId}`)
           if (!response.ok) throw new Error('Failed to fetch project')
           const project = await response.json()
-          set({ 
+          set({
             currentProject: project,
-            loading: false 
+            loading: false
           })
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
         }
       },
-      
+
       createProject: async (data) => {
         set({ loading: true, error: null })
         try {
@@ -400,9 +400,9 @@ export const useBOMStore = create<BOMStore>()(
             ...newProject,
             itemCount: newProject._count?.items || 0
           }
-          set(state => ({ 
+          set(state => ({
             projects: [mappedProject, ...state.projects],
-            loading: false 
+            loading: false
           }))
           return mappedProject
         } catch (error) {
@@ -418,7 +418,7 @@ export const useBOMStore = create<BOMStore>()(
             method: 'DELETE'
           })
           if (!response.ok) throw new Error('Failed to delete project')
-          
+
           set(state => ({
             projects: state.projects.filter(p => p.id !== projectId),
             currentProject: state.currentProject?.id === projectId ? null : state.currentProject,
@@ -437,7 +437,7 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to fetch locations')
           const locations = await response.json()
           set({ locations, loading: false })
-          
+
           // Auto-select first location if none selected
           const { currentLocationId } = get()
           if (!currentLocationId && locations.length > 0) {
@@ -458,10 +458,10 @@ export const useBOMStore = create<BOMStore>()(
           })
           if (!response.ok) throw new Error('Failed to create location')
           const newLocation = await response.json()
-          set(state => ({ 
+          set(state => ({
             locations: [...state.locations, newLocation],
             currentLocationId: newLocation.id,
-            loading: false 
+            loading: false
           }))
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
@@ -474,7 +474,7 @@ export const useBOMStore = create<BOMStore>()(
         try {
           const { currentProject } = get()
           if (!currentProject) throw new Error('No current project')
-          
+
           const response = await fetch(`/api/projects/${currentProject.id}/locations/${locationId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -482,9 +482,9 @@ export const useBOMStore = create<BOMStore>()(
           })
           if (!response.ok) throw new Error('Failed to update location')
           const updatedLocation = await response.json()
-          
+
           set(state => ({
-            locations: state.locations.map(loc => 
+            locations: state.locations.map(loc =>
               loc.id === locationId ? updatedLocation : loc
             ),
             loading: false
@@ -500,18 +500,18 @@ export const useBOMStore = create<BOMStore>()(
         try {
           const { currentProject } = get()
           if (!currentProject) throw new Error('No current project')
-          
+
           const response = await fetch(`/api/projects/${currentProject.id}/locations/${locationId}`, {
             method: 'DELETE'
           })
           if (!response.ok) throw new Error('Failed to delete location')
-          
+
           set(state => {
             const newLocations = state.locations.filter(loc => loc.id !== locationId)
-            const newCurrentLocationId = state.currentLocationId === locationId 
+            const newCurrentLocationId = state.currentLocationId === locationId
               ? (newLocations.length > 0 ? newLocations[0].id : null)
               : state.currentLocationId
-            
+
             return {
               locations: newLocations,
               currentLocationId: newCurrentLocationId,
@@ -523,11 +523,11 @@ export const useBOMStore = create<BOMStore>()(
           throw error
         }
       },
-      
+
       fetchBOMItems: async (projectId, locationId) => {
         set({ loading: true, error: null })
         try {
-          const url = locationId 
+          const url = locationId
             ? `/api/projects/${projectId}/items?locationId=${locationId}`
             : `/api/projects/${projectId}/items`
           const response = await fetch(url)
@@ -538,7 +538,7 @@ export const useBOMStore = create<BOMStore>()(
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
         }
       },
-      
+
       addBOMItem: async (projectId, item) => {
         set({ loading: true, error: null })
         try {
@@ -549,27 +549,27 @@ export const useBOMStore = create<BOMStore>()(
           })
           if (!response.ok) throw new Error('Failed to add BOM item')
           const newItem = await response.json()
-          set(state => ({ 
+          set(state => ({
             bomItems: [...state.bomItems, newItem],
             // Update project item count
-            projects: state.projects.map(p => 
+            projects: state.projects.map(p =>
               p.id === projectId ? { ...p, itemCount: p.itemCount + 1 } : p
             ),
-            currentProject: state.currentProject?.id === projectId 
+            currentProject: state.currentProject?.id === projectId
               ? { ...state.currentProject, itemCount: state.currentProject.itemCount + 1 }
               : state.currentProject,
-            loading: false 
+            loading: false
           }))
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
         }
       },
-      
+
       updateBOMItem: async (itemId, updates) => {
         try {
           const { currentProject } = get()
           if (!currentProject) throw new Error('No current project')
-          
+
           const response = await fetch(`/api/projects/${currentProject.id}/items/${itemId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -578,7 +578,7 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to update BOM item')
           const updatedItem = await response.json()
           set(state => ({
-            bomItems: state.bomItems.map(item => 
+            bomItems: state.bomItems.map(item =>
               item.id === itemId ? updatedItem : item
             )
           }))
@@ -586,12 +586,12 @@ export const useBOMStore = create<BOMStore>()(
           set({ error: error instanceof Error ? error.message : 'Unknown error' })
         }
       },
-      
+
       deleteBOMItem: async (itemId) => {
         try {
           const { currentProject } = get()
           if (!currentProject) throw new Error('No current project')
-          
+
           const response = await fetch(`/api/projects/${currentProject.id}/items/${itemId}`, {
             method: 'DELETE'
           })
@@ -600,7 +600,7 @@ export const useBOMStore = create<BOMStore>()(
             bomItems: state.bomItems.filter(item => item.id !== itemId),
             selectedItems: state.selectedItems.filter(id => id !== itemId),
             // Update project item count
-            projects: state.projects.map(p => 
+            projects: state.projects.map(p =>
               p.id === currentProject.id ? { ...p, itemCount: Math.max(0, p.itemCount - 1) } : p
             ),
             currentProject: { ...currentProject, itemCount: Math.max(0, currentProject.itemCount - 1) }
@@ -609,7 +609,7 @@ export const useBOMStore = create<BOMStore>()(
           set({ error: error instanceof Error ? error.message : 'Unknown error' })
         }
       },
-      
+
       exportBOM: async (projectId, format) => {
         try {
           const response = await fetch(`/api/projects/${projectId}/export`, {
@@ -624,7 +624,7 @@ export const useBOMStore = create<BOMStore>()(
           throw error
         }
       },
-      
+
       importBOM: async (projectId, items, format) => {
         set({ loading: true, error: null })
         try {
@@ -643,7 +643,7 @@ export const useBOMStore = create<BOMStore>()(
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
         }
       },
-      
+
       downloadDatabaseArchive: async () => {
         try {
           const response = await fetch('/api/database/export', {
@@ -704,7 +704,7 @@ export const useBOMStore = create<BOMStore>()(
           try {
             while (true) {
               const { done, value } = await reader.read()
-              
+
               if (done) break
 
               const chunk = decoder.decode(value, { stream: true })
@@ -714,7 +714,7 @@ export const useBOMStore = create<BOMStore>()(
                 if (line.startsWith('data: ')) {
                   try {
                     const data = JSON.parse(line.slice(6))
-                    
+
                     if (data.type === 'download') {
                       // Convert base64 back to blob
                       const binaryString = atob(data.data)
@@ -926,7 +926,7 @@ export const useBOMStore = create<BOMStore>()(
           }
 
           const data = await response.json()
-          
+
           if (!data.success) {
             throw new Error(data.error || 'Import failed')
           }
@@ -961,11 +961,11 @@ export const useBOMStore = create<BOMStore>()(
           }
 
           const serverSettings = await response.json()
-          
+
           // Update both state and localStorage
           localStorage.setItem('app-settings', JSON.stringify(serverSettings))
           set({ settings: serverSettings, settingsLoaded: true })
-          
+
           // Apply theme immediately
           if (serverSettings?.appearance) {
             applyTheme(serverSettings.appearance.theme)
@@ -988,10 +988,10 @@ export const useBOMStore = create<BOMStore>()(
             ...currentSettings,
             ...updates
           })
-          
+
           set({ settings: updatedSettings })
           localStorage.setItem('app-settings', JSON.stringify(updatedSettings))
-          
+
           // Apply theme immediately if appearance settings changed
           if (updates.appearance?.theme) {
             applyTheme(updatedSettings.appearance.theme)
@@ -1031,7 +1031,7 @@ export const useBOMStore = create<BOMStore>()(
           const defaults = DEFAULT_SETTINGS
           set({ settings: defaults })
           localStorage.setItem('app-settings', JSON.stringify(defaults))
-          
+
           // Apply default theme
           applyTheme(defaults.appearance.theme)
 
@@ -1201,7 +1201,7 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to export PDF')
           const result = await response.json()
           set({ loading: false })
-        return result
+          return result
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Unknown error', loading: false })
           throw error
@@ -1275,13 +1275,13 @@ export const useBOMStore = create<BOMStore>()(
           if (!response.ok) throw new Error('Failed to fetch wire sizes')
           const data = await response.json()
           const apiWireSizes = { awg: data.wireSizes?.awg || [], mm2: data.wireSizes?.mm2 || [] }
-          
+
           // Use fallback standard wire sizes if API returns empty arrays
           const wireSizes = {
             awg: apiWireSizes.awg.length > 0 ? apiWireSizes.awg : STANDARD_WIRE_SIZES.awg,
             mm2: apiWireSizes.mm2.length > 0 ? apiWireSizes.mm2 : STANDARD_WIRE_SIZES.mm2
           }
-          
+
           set(state => ({
             glenairBuilder: { ...state.glenairBuilder, availableWireSizes: wireSizes },
             loading: false
@@ -1322,14 +1322,13 @@ export const useBOMStore = create<BOMStore>()(
         }
       },
 
-      fetchGlenairContacts: async (catalogId, wireValue, wireSystem, contactSize) => {
+      fetchGlenairContacts: async (catalogId, wireValue, wireSystem) => {
         set({ loading: true, error: null })
         try {
           const params = new URLSearchParams({
             catalogId,
             wireValue,
-            wireSystem,
-            contactSize
+            wireSystem
           })
           const response = await fetch(`/api/glenair/contacts?${params}`)
           if (!response.ok) throw new Error('Failed to fetch Glenair contacts')
@@ -1348,17 +1347,17 @@ export const useBOMStore = create<BOMStore>()(
 
       fetchGlenairArrangements: async (catalogId, conductorCount, contactSize) => {
         console.log('🔍 [DEBUG] fetchGlenairArrangements called with:', { catalogId, conductorCount, contactSize })
-        
+
         // Set loading state for arrangements specifically
         set(state => ({
-          glenairBuilder: { 
-            ...state.glenairBuilder, 
-            isLoadingArrangements: true, 
+          glenairBuilder: {
+            ...state.glenairBuilder,
+            isLoadingArrangements: true,
             arrangementError: null,
             // Don't clear availableArrangements immediately to avoid flicker
           }
         }))
-        
+
         try {
           const params = new URLSearchParams({
             catalogId,
@@ -1366,50 +1365,50 @@ export const useBOMStore = create<BOMStore>()(
             contactSize
           })
           console.log('🔍 [DEBUG] Fetching arrangements with params:', params.toString())
-          
+
           const response = await fetch(`/api/glenair/arrangements?${params}`)
           if (!response.ok) {
             const errorText = await response.text()
             console.error('🔍 [DEBUG] Arrangement fetch failed:', response.status, errorText)
             throw new Error(`Failed to fetch Glenair arrangements: ${response.status} ${errorText}`)
           }
-          
+
           const data = await response.json()
           console.log('🔍 [DEBUG] Arrangement response data:', data)
-          
+
           const arrangements: ArrangementOption[] = data.arrangements || []
           console.log('🔍 [DEBUG] Parsed arrangements:', arrangements)
-          
+
           // Auto-select if only one arrangement exists
           const autoSelectedArrangement = arrangements.length === 1 ? arrangements[0].arrangement : null
           if (autoSelectedArrangement) {
             console.log('🔍 [DEBUG] Auto-selecting single arrangement:', autoSelectedArrangement)
           }
-          
+
           set(state => ({
-            glenairBuilder: { 
-              ...state.glenairBuilder, 
+            glenairBuilder: {
+              ...state.glenairBuilder,
               availableArrangements: arrangements,
               arrangement: autoSelectedArrangement || state.glenairBuilder.arrangement, // Keep existing if no auto-select
               isLoadingArrangements: false,
               arrangementError: null
             }
           }))
-          
+
           return arrangements
         } catch (error) {
           console.error('🔍 [DEBUG] Error in fetchGlenairArrangements:', error)
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          
+
           set(state => ({
-            glenairBuilder: { 
-              ...state.glenairBuilder, 
+            glenairBuilder: {
+              ...state.glenairBuilder,
               isLoadingArrangements: false,
               arrangementError: errorMessage,
               availableArrangements: [] // Clear arrangements on error
             }
           }))
-          
+
           throw error
         }
       },
@@ -1465,24 +1464,24 @@ export const useBOMStore = create<BOMStore>()(
             item.id === itemId ? { ...item, [field]: value } : item
           )
         }))
-        
+
         // Also update via API
         get().updateBOMItem(itemId, { [field]: value })
       },
-      
+
       bulkUpdate: (itemIds, updates) => {
         set(state => ({
           bomItems: state.bomItems.map(item =>
             itemIds.includes(item.id) ? { ...item, ...updates } : item
           )
         }))
-        
+
         // Update each item via API
         itemIds.forEach(itemId => {
           get().updateBOMItem(itemId, updates)
         })
       },
-      
+
       duplicateItems: (itemIds) => {
         const { bomItems } = get()
         const itemsToDuplicate = bomItems.filter(item => itemIds.includes(item.id))
@@ -1493,18 +1492,18 @@ export const useBOMStore = create<BOMStore>()(
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }))
-        
+
         set(state => ({
           bomItems: [...state.bomItems, ...duplicatedItems]
         }))
       },
-      
+
       reorderItems: (fromIndex, toIndex) => {
         set(state => {
           const newItems = [...state.bomItems]
           const [movedItem] = newItems.splice(fromIndex, 1)
           newItems.splice(toIndex, 0, movedItem)
-          
+
           // Update order values
           return {
             bomItems: newItems.map((item, index) => ({

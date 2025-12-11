@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/tooltip'
 import { AlertCircle, Check, Copy, RotateCcw, Loader2, Info } from 'lucide-react'
 import type { WireSystem, Contact } from '@/types/glenair'
+import { SHELL_STYLES } from './ShellStyleSelector'
 import { convertWireGauge } from '@/lib/glenair/wire-gauge'
 
 interface PartNumberBuilderProps {
@@ -157,39 +158,18 @@ export function PartNumberBuilder({
     }
   }
 
-  // Handle contact size selection
+  // Handle contact size selection (Step 2) - triggers contact filtering
   const handleContactSizeSelect = useCallback(async (size: string) => {
-    console.log('🔍 [DEBUG] Contact size selected:', size)
-    
-    // Clear arrangement state but keep availableArrangements to avoid flicker during loading
+    // Reset downstream selections when contact size changes
     setGlenairBuilderState({
       contactSize: size,
-      arrangement: null,
-      arrangementError: null,
       selectedContacts: [],
+      arrangement: null,
+      availableArrangements: [],
+      shellStyle: null,
       result: null
     })
-
-    if (wireSelection) {
-      try {
-        console.log('🔍 [DEBUG] Fetching arrangements for:', {
-          catalogId,
-          conductorCount: wireSelection.conductorCount,
-          contactSize: size
-        })
-        await fetchGlenairArrangements(catalogId, wireSelection.conductorCount, size)
-        console.log('🔍 [DEBUG] Arrangements fetched successfully')
-      } catch (err) {
-        console.error('🔍 [DEBUG] Failed to fetch arrangements:', err)
-        // Error is already handled in the store, just log here
-      }
-    } else {
-      console.warn('🔍 [DEBUG] Cannot fetch arrangements - missing wireSelection', {
-        wireSelection: !!wireSelection,
-        catalogId: !!catalogId
-      })
-    }
-  }, [catalogId, wireSelection, setGlenairBuilderState, fetchGlenairArrangements])
+  }, [setGlenairBuilderState])
 
   // Handle arrangement selection
   const handleArrangementSelect = useCallback((arr: string) => {
@@ -208,8 +188,8 @@ export function PartNumberBuilder({
     })
   }, [setGlenairBuilderState])
 
-  // Handle contact selection
-  const handleContactToggle = useCallback((contact: Contact) => {
+  // Handle contact selection (Step 3) - triggers arrangement fetch
+  const handleContactToggle = useCallback(async (contact: Contact) => {
     const exists = selectedContacts.some(c => c.part_number === contact.part_number)
     const newContacts = exists
       ? selectedContacts.filter(c => c.part_number !== contact.part_number)
@@ -217,21 +197,33 @@ export function PartNumberBuilder({
     
     setGlenairBuilderState({
       selectedContacts: newContacts,
+      arrangement: null,
+      availableArrangements: [],
+      shellStyle: null,
       result: null
     })
-  }, [selectedContacts, setGlenairBuilderState])
 
-  // Fetch contacts when wire and contact size are selected
+    // Fetch arrangements using the already-selected contact size
+    if (newContacts.length > 0 && wireSelection && contactSize) {
+      // Fetch arrangements for this contact size and conductor count
+      try {
+        await fetchGlenairArrangements(catalogId, wireSelection.conductorCount, contactSize)
+      } catch (err) {
+        console.error('Failed to fetch arrangements:', err)
+      }
+    }
+  }, [selectedContacts, wireSelection, contactSize, catalogId, setGlenairBuilderState, fetchGlenairArrangements])
+
+  // Fetch contacts when wire selection is made (Step 2)
   useEffect(() => {
-    if (wireSelection && wireSelection.wireValue && contactSize) {
+    if (wireSelection && wireSelection.wireValue) {
       fetchGlenairContacts(
         catalogId,
         wireSelection.wireValue,
-        wireSelection.system,
-        contactSize
+        wireSelection.system
       ).catch(console.error)
     }
-  }, [catalogId, wireSelection, contactSize, fetchGlenairContacts])
+  }, [catalogId, wireSelection, fetchGlenairContacts])
 
   // Build part when all selections are made
   const handleBuildPart = useCallback(async () => {
@@ -273,24 +265,19 @@ export function PartNumberBuilder({
     resetGlenairBuilder()
   }
 
-  // Determine which sections are enabled
-  const canSelectContactSize = wireSelection && wireSelection.wireValue && wireSelection.conductorCount > 0
-  const canSelectArrangement = canSelectContactSize && contactSize && availableArrangements.length > 0
+  // Determine which sections are enabled (6-STEP FLOW)
+  const canSelectContactSize = wireSelection && wireSelection.wireValue && wireSelection.conductorCount > 0 && availableContactSizes.length > 0
+  const canSelectContacts = canSelectContactSize && contactSize && availableContacts
+  const canSelectArrangement = selectedContacts.length > 0 && availableArrangements.length > 0
   const isLoadingArrangements = glenairBuilder.isLoadingArrangements
   const arrangementError = glenairBuilder.arrangementError
   const canSelectShellStyle = canSelectArrangement && arrangement
-  const canSelectContacts = canSelectShellStyle && shellStyle && availableContacts
-  const canBuild = canSelectContacts && selectedContacts.length > 0
+  const canReview = canSelectShellStyle && shellStyle
+  const canBuild = canReview && selectedContacts.length > 0
 
-  // Common contact sizes for Glenair Series 80 - used as fallback
-  const standardContactSizes = ['20', '16', '12', '8', '4', '0', '4/0']
-  
-  // Use dynamically filtered contact sizes if available, otherwise fall back to standard
-  // Type explicitly to avoid type mismatch issues
-  const displayContactSizes: Array<{ contactSize: string; awgRange: string; mm2Range: string; partNumbers: string[] }> = 
-    availableContactSizes.length > 0 
-      ? availableContactSizes 
-      : standardContactSizes.map(size => ({ contactSize: size, awgRange: '', mm2Range: '', partNumbers: [] }))
+  // Filter contacts by selected contact size
+  const filteredPins = availableContacts?.pins.filter(p => p.contact_size === contactSize) || []
+  const filteredSockets = availableContacts?.sockets.filter(s => s.contact_size === contactSize) || []
 
   return (
     <div className="space-y-4">
@@ -337,29 +324,6 @@ export function PartNumberBuilder({
         </Alert>
       )}
 
-      {/* Debug Panel - Remove in production */}
-      {/* Debug section temporarily disabled - needs variable fixes
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-4">
-            <h4 className="font-semibold text-sm mb-2">Debug Info:</h4>
-            <div className="text-xs space-y-1 font-mono">
-              <div>Catalog ID: {catalogId || 'none'}</div>
-              <div>Wire Selection: {wireSelection ? `${wireSelection.wireValue} (${wireSelection.conductorCount} conductors)` : 'none'}</div>
-              <div>Contact Size: {contactSize || 'none'}</div>
-              <div>Arrangement: {arrangement || 'none'}</div>
-              <div>Available Arrangements: {availableArrangements.length} items</div>
-              <div>Loading Arrangements: {isLoadingArrangements ? 'YES' : 'NO'}</div>
-              <div>Arrangement Error: {arrangementError || 'none'}</div>
-              <div>Can Select Arrangement: {canSelectArrangement ? 'YES' : 'NO'}</div>
-              {availableArrangements.length > 0 && (
-                <div>Arrangement Details: {JSON.stringify(availableArrangements.map(a => ({ arr: a.arrangement, count: a.count })))}</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      */}
 
       {/* Single Sheet Form */}
       <Card>
@@ -439,87 +403,55 @@ export function PartNumberBuilder({
 
           <Separator />
 
-          {/* Section 2: Contact Size */}
+          {/* Section 2: Contact Size Selection */}
           <div className={`space-y-4 ${!canSelectContactSize ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-2">
               <Badge variant={contactSize ? "default" : "secondary"}>2</Badge>
               <h3 className="font-semibold">Contact Size</h3>
               {contactSize && (
-                <Badge variant="outline" className="ml-auto">Size {contactSize}</Badge>
+                <Badge variant="outline" className="ml-auto">
+                  Size {contactSize}
+                </Badge>
               )}
             </div>
             
             <div className="pl-6">
               {canSelectContactSize ? (
-                loading ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Loading compatible contact sizes...</span>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {availableContactSizes.map((sizeInfo) => (
+                      <TooltipProvider key={sizeInfo.contactSize}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant={contactSize === sizeInfo.contactSize ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleContactSizeSelect(sizeInfo.contactSize)}
+                            >
+                              {sizeInfo.contactSize}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-sm">
+                              <p className="font-medium">Contact Size: {sizeInfo.contactSize}</p>
+                              {sizeInfo.awgRange && <p>AWG: {sizeInfo.awgRange}</p>}
+                              {sizeInfo.mm2Range && <p>MM2: {sizeInfo.mm2Range}</p>}
+                              <p className="text-xs mt-1">{sizeInfo.partNumbers.length} part number(s)</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
                   </div>
-                ) : availableContactSizes.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {availableContactSizes.length} contact size(s) compatible with {wireValue} {system}
-                    </p>
-                    <TooltipProvider>
-                      <div className="flex flex-wrap gap-2">
-                        {displayContactSizes.map((sizeInfo) => {
-                          const size = typeof sizeInfo === 'string' ? sizeInfo : sizeInfo.contactSize
-                          const awgRange = typeof sizeInfo === 'string' ? '' : sizeInfo.awgRange
-                          const mm2Range = typeof sizeInfo === 'string' ? '' : sizeInfo.mm2Range
-                          const partCount = typeof sizeInfo === 'string' ? 0 : sizeInfo.partNumbers.length
-                          
-                          return (
-                            <Tooltip key={size}>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant={contactSize === size ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => handleContactSizeSelect(size)}
-                                  className="relative"
-                                >
-                                  {size}
-                                  {partCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                                      {partCount}
-                                    </span>
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <div className="text-sm">
-                                  <p className="font-medium">Contact Size {size}</p>
-                                  {awgRange && <p>AWG: {awgRange}</p>}
-                                  {mm2Range && <p>MM²: {mm2Range}</p>}
-                                  {partCount > 0 && <p>{partCount} part number(s) available</p>}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          )
-                        })}
-                      </div>
-                    </TooltipProvider>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-amber-600 flex items-center gap-1">
-                      <Info className="h-4 w-4" />
-                      No compatible contact sizes found for {wireValue} {system}. Showing standard sizes:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {standardContactSizes.map((size) => (
-                        <Button
-                          key={size}
-                          variant={contactSize === size ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleContactSizeSelect(size)}
-                        >
-                          {size}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )
+                  <p className="text-xs text-muted-foreground">
+                    {availableContactSizes.length} contact size{availableContactSizes.length !== 1 ? 's' : ''} compatible with {wireValue} {system}
+                  </p>
+                </div>
+              ) : loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading contact sizes...</span>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Select wire input first</p>
               )}
@@ -528,10 +460,111 @@ export function PartNumberBuilder({
 
           <Separator />
 
-          {/* Section 3: Arrangement */}
+          {/* Section 3: Contact Selection */}
+          <div className={`space-y-4 ${!canSelectContacts ? 'opacity-50' : ''}`}>
+            <div className="flex items-center gap-2">
+              <Badge variant={selectedContacts.length > 0 ? "default" : "secondary"}>3</Badge>
+              <h3 className="font-semibold">Contact Selection</h3>
+              {selectedContacts.length > 0 && (
+                <Badge variant="outline" className="ml-auto">
+                  {selectedContacts.length} selected
+                </Badge>
+              )}
+            </div>
+            
+            <div className="pl-6">
+              {canSelectContacts && availableContacts ? (
+                <div className="space-y-4">
+                  {/* Pins */}
+                  {filteredPins.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Pins ({filteredPins.length} for size {contactSize})</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {filteredPins.map((pin) => {
+                          const isSelected = selectedContacts.some(c => c.part_number === pin.part_number)
+                          return (
+                            <TooltipProvider key={pin.part_number}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={isSelected ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleContactToggle(pin)}
+                                  >
+                                    {pin.part_number}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-sm">
+                                    <p className="font-medium">{pin.part_number}</p>
+                                    {pin.contact_size && <p>Contact Size: {pin.contact_size}</p>}
+                                    {pin.awg_range && <p>AWG: {pin.awg_range}</p>}
+                                    {pin.mm2_range && <p>MM2: {pin.mm2_range}</p>}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Sockets */}
+                  {filteredSockets.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Sockets ({filteredSockets.length} for size {contactSize})</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {filteredSockets.map((socket) => {
+                          const isSelected = selectedContacts.some(c => c.part_number === socket.part_number)
+                          return (
+                            <TooltipProvider key={socket.part_number}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={isSelected ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleContactToggle(socket)}
+                                  >
+                                    {socket.part_number}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-sm">
+                                    <p className="font-medium">{socket.part_number}</p>
+                                    {socket.contact_size && <p>Contact Size: {socket.contact_size}</p>}
+                                    {socket.awg_range && <p>AWG: {socket.awg_range}</p>}
+                                    {socket.mm2_range && <p>MM2: {socket.mm2_range}</p>}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredPins.length === 0 && filteredSockets.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No contacts found for size {contactSize}</p>
+                  )}
+                </div>
+              ) : loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading compatible contacts...</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Select contact size first</p>
+              )}
+            </div>
+          </div>
+          <Separator />
+
+          {/* Section 4: Arrangement */}
           <div className={`space-y-4 ${!canSelectArrangement ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-2">
-              <Badge variant={arrangement ? "default" : "secondary"}>3</Badge>
+              <Badge variant={arrangement ? "default" : "secondary"}>4</Badge>
               <h3 className="font-semibold">Arrangement</h3>
               {arrangement && (
                 <Badge variant="outline" className="ml-auto">{arrangement}</Badge>
@@ -589,17 +622,17 @@ export function PartNumberBuilder({
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Select contact size first</p>
+                <p className="text-sm text-muted-foreground">Select contacts first</p>
               )}
             </div>
           </div>
 
           <Separator />
 
-          {/* Section 4: Shell Style */}
+          {/* Section 5: Shell Style */}
           <div className={`space-y-4 ${!canSelectShellStyle ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-2">
-              <Badge variant={shellStyle ? "default" : "secondary"}>4</Badge>
+              <Badge variant={shellStyle ? "default" : "secondary"}>5</Badge>
               <h3 className="font-semibold">Shell Style</h3>
               {shellStyle && (
                 <Badge variant="outline" className="ml-auto">{shellStyle}</Badge>
@@ -609,14 +642,14 @@ export function PartNumberBuilder({
             <div className="pl-6">
               {canSelectShellStyle ? (
                 <div className="flex flex-wrap gap-2">
-                  {['Straight Plug', 'Wall Mount Receptacle', 'Jam Nut Receptacle', 'Square Flange'].map((style) => (
+                  {SHELL_STYLES.map(({ value, label }) => (
                     <Button
-                      key={style}
-                      variant={shellStyle === style ? "default" : "outline"}
+                      key={value}
+                      variant={shellStyle === value ? "default" : "outline"}
                       size="sm"
-                      onClick={() => handleShellStyleSelect(style)}
+                      onClick={() => handleShellStyleSelect(value)}
                     >
-                      {style}
+                      {label}
                     </Button>
                   ))}
                 </div>
@@ -628,67 +661,54 @@ export function PartNumberBuilder({
 
           <Separator />
 
-          {/* Section 5: Contacts */}
-          <div className={`space-y-4 ${!canSelectContacts ? 'opacity-50' : ''}`}>
+          {/* Section 6: Review & Confirm */}
+          <div className={`space-y-4 ${!canReview ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-2">
-              <Badge variant={selectedContacts.length > 0 ? "default" : "secondary"}>5</Badge>
-              <h3 className="font-semibold">Contacts</h3>
-              {selectedContacts.length > 0 && (
-                <Badge variant="outline" className="ml-auto">
-                  {selectedContacts.length} selected
-                </Badge>
-              )}
+              <Badge variant={canReview ? "default" : "secondary"}>6</Badge>
+              <h3 className="font-semibold">Review & Confirm</h3>
             </div>
             
             <div className="pl-6">
-              {canSelectContacts && availableContacts ? (
+              {canReview ? (
                 <div className="space-y-4">
-                  {/* Pins */}
-                  {availableContacts.pins.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Pins</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {availableContacts.pins.map((pin) => {
-                          const isSelected = selectedContacts.some(c => c.part_number === pin.part_number)
-                          return (
-                            <Button
-                              key={pin.part_number}
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handleContactToggle(pin)}
-                            >
-                              {pin.part_number}
-                            </Button>
-                          )
-                        })}
-                      </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <Label className="text-muted-foreground">Wire</Label>
+                      <p className="font-medium">{wireSelection?.wireValue} {wireSelection?.system}</p>
                     </div>
-                  )}
-                  
-                  {/* Sockets */}
-                  {availableContacts.sockets.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Sockets</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {availableContacts.sockets.map((socket) => {
-                          const isSelected = selectedContacts.some(c => c.part_number === socket.part_number)
-                          return (
-                            <Button
-                              key={socket.part_number}
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handleContactToggle(socket)}
-                            >
-                              {socket.part_number}
-                            </Button>
-                          )
-                        })}
-                      </div>
+                    <div>
+                      <Label className="text-muted-foreground">Conductors</Label>
+                      <p className="font-medium">{wireSelection?.conductorCount}</p>
                     </div>
-                  )}
+                    <div>
+                      <Label className="text-muted-foreground">Arrangement</Label>
+                      <p className="font-medium">{arrangement}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Shell Style</Label>
+                      <p className="font-medium">{shellStyle}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Selected Contacts ({selectedContacts.length})</Label>
+                    <div className="border rounded-md p-3 space-y-1">
+                      {selectedContacts.map((contact) => (
+                        <div key={contact.part_number} className="flex justify-between items-center text-sm">
+                          <span className="font-mono">{contact.part_number}</span>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span className="text-xs">{contact.type}</span>
+                            {contact.contact_size && (
+                              <span className="text-xs">Size {contact.contact_size}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Select shell style first</p>
+                <p className="text-sm text-muted-foreground">Complete all previous steps to review</p>
               )}
             </div>
           </div>

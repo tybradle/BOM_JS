@@ -1,0 +1,14 @@
+{
+  "name": "Glenair Series 80 - Pin Contacts",
+  "category": "pins",
+  "version": "2024.1",
+  "description": "Pin contact specifications with wire size compatibility",
+  "source": "Glenair Extractor - Pages 289-290",
+  "pages": [
+    289,
+    290
+  ],
+  "transformedAt": "2025-12-01T21:43:55.920Z",
+  "tableCount": 2,
+  "format": "bom-js-v1"
+}
